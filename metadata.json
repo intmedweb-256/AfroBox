@@ -1,0 +1,6 @@
+{
+  "name": "AfroBox for Schools",
+  "description": "African oral storytelling, tactile geography, brain challenges, and cultural quests optimized for mobile and tablet.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

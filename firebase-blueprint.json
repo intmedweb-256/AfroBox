@@ -1,0 +1,141 @@
+{
+  "entities": {
+    "Story": {
+      "title": "Story",
+      "description": "A children's African storytelling and reading adventure document with full cultural provenance and learning connections",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 200 },
+        "shortDescription": { "type": "string", "maxLength": 500 },
+        "country": { "type": "string", "maxLength": 100 },
+        "region": { "type": "string", "maxLength": 100 },
+        "culturalTradition": { "type": "string", "maxLength": 150 },
+        "community": { "type": "string", "maxLength": 150 },
+        "languageOfOrigin": { "type": "string", "maxLength": 100 },
+        "storyType": {
+          "type": "string",
+          "enum": [
+            "TRADITIONAL_FOLKTALE",
+            "LEGEND",
+            "MYTH_ORIGIN",
+            "ANIMAL_TRICKSTER",
+            "CONTEMPORARY",
+            "ADAPTED_TRADITIONAL"
+          ]
+        },
+        "themes": { "type": "array" },
+        "ageRange": { "type": "string", "maxLength": 30 },
+        "difficulty": { "type": "string", "enum": ["EASY", "MEDIUM", "CHALLENGING"] },
+        "estimatedReadingTime": { "type": "number" },
+        "learningObjectives": { "type": "array" },
+        "source": { "type": "string", "maxLength": 300 },
+        "sourceType": { "type": "string", "maxLength": 100 },
+        "sourceAuthorOrCollector": { "type": "string", "maxLength": 150 },
+        "originalStoryteller": { "type": "string", "maxLength": 150 },
+        "rightsStatus": {
+          "type": "string",
+          "enum": [
+            "PUBLIC_DOMAIN",
+            "CC_BY",
+            "CC_BY_SA",
+            "CC_BY_NC",
+            "PERMISSION_REQUIRED",
+            "TRADITIONAL_SOURCE_ADAPTATION",
+            "RESEARCH_ONLY"
+          ]
+        },
+        "adaptationStatus": { "type": "string", "maxLength": 100 },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["VERIFIED", "RESEARCH_IN_PROGRESS", "DEMO_PLACEHOLDER"]
+        },
+        "variantNotes": { "type": "string", "maxLength": 1000 },
+        "dateAdded": { "type": "string", "maxLength": 50 },
+        "publicationStatus": {
+          "type": "string",
+          "enum": ["RESEARCH", "DRAFT", "PENDING_REVIEW", "APPROVED", "PUBLISHED"]
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "country",
+        "region",
+        "culturalTradition",
+        "storyType",
+        "verificationStatus",
+        "publicationStatus"
+      ]
+    },
+    "Narration": {
+      "title": "Narration",
+      "description": "An audio narration track for a Storyland story",
+      "type": "object",
+      "properties": {
+        "narrationId": { "type": "string", "maxLength": 64 },
+        "storyId": { "type": "string", "maxLength": 64 },
+        "narratorId": { "type": "string", "maxLength": 64 },
+        "narratorName": { "type": "string", "maxLength": 150 },
+        "voiceType": {
+          "type": "string",
+          "enum": [
+            "HUMAN_NARRATOR",
+            "PARENT",
+            "TEACHER",
+            "COMMUNITY_STORYTELLER",
+            "CHILD_READING",
+            "AI_GENERATED",
+            "AI_CLONED"
+          ]
+        },
+        "language": { "type": "string", "maxLength": 80 },
+        "locale": { "type": "string", "maxLength": 30 },
+        "audioUrl": { "type": "string", "maxLength": 1000 },
+        "duration": { "type": "number" },
+        "recordingMethod": { "type": "string", "maxLength": 100 },
+        "consentStatus": { "type": "string", "maxLength": 100 },
+        "rightsStatus": { "type": "string", "maxLength": 100 },
+        "publicationStatus": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": [
+        "narrationId",
+        "storyId",
+        "narratorName",
+        "voiceType",
+        "language",
+        "consentStatus",
+        "publicationStatus"
+      ]
+    },
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Child reader progress, completed stories, bookmarks and private recordings",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 64 },
+        "completedStoryIds": { "type": "array" },
+        "savedStoryIds": { "type": "array" },
+        "stamps": { "type": "array" },
+        "discoveredWords": { "type": "array" },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["userId"]
+    }
+  },
+  "firestore": {
+    "/stories/{storyId}": {
+      "schema": "Story",
+      "description": "Public verified and research story documents"
+    },
+    "/stories/{storyId}/narrations/{narrationId}": {
+      "schema": "Narration",
+      "description": "Narration audio tracks for a given story"
+    },
+    "/users/{userId}/progress": {
+      "schema": "UserProgress",
+      "description": "Private reading progress and bookmarks for child reader"
+    }
+  }
+}
