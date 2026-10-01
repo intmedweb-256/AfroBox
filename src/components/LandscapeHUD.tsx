@@ -102,10 +102,10 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
           <div className="hidden sm:block">
             <div className="flex items-center gap-1.5 leading-none">
               <span className="font-extrabold text-base sm:text-lg text-[#23211E] font-['Urbanist']">
-                Afro <span className="text-[#E25822]">Box</span>
+                Afro <span className="text-[#E25822]">Box</span> <span className="text-[#1D3E2F]">Web</span>
               </span>
               <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900">
-                APP
+                BETA
               </span>
               <span className="hidden lg:inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-full border border-amber-300">
                 <span>🇺🇬</span>
@@ -228,16 +228,16 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
           {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
 
-        {/* Launch & Beta Testing Suite (Target: Sept 27th) */}
+        {/* Beta Testing & Roadmap Suite */}
         {onOpenDeployment && (
           <button
             id="hud-deployment-btn"
             onClick={onOpenDeployment}
             className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-black shadow-2xs transition-colors"
-            title="Launch Steps & Beta Testing Suite (September 27th Deadline)"
+            title="AfroBox Web Beta Testing & Roadmap"
           >
             <Rocket className="w-3.5 h-3.5 text-amber-700" />
-            <span className="hidden xl:inline">Launch Sept 27</span>
+            <span className="hidden xl:inline">Beta Version</span>
           </button>
         )}
 

@@ -126,14 +126,14 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({ isOpen, onClos
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-black font-['Urbanist'] text-[#1D3E2F]">
-                  Afro Box Deployment & Roadmap
+                  AfroBox Web — Beta Testing & Roadmap
                 </h2>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  App Edition
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                  Beta Version
                 </span>
               </div>
               <p className="text-xs text-[#7C4728] font-bold">
-                Deploy App Version • Prepare Web Version for Beta & Crowdfunding
+                AfroBox Web Beta Release • Testing, Sharing, and Roadmap
               </p>
             </div>
           </div>
@@ -155,7 +155,7 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({ isOpen, onClos
                 : 'text-[#7C4728] hover:text-[#23211E]'
             }`}
           >
-            1. Deploy App Version
+            1. Web Beta & Live Links
           </button>
           <button
             onClick={() => setActiveTab('WEB_ROADMAP')}
@@ -191,16 +191,16 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({ isOpen, onClos
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 text-sm">
-          {/* TAB 1: APP VERSION DEPLOYMENT */}
+          {/* TAB 1: WEB BETA & DEPLOYMENT */}
           {activeTab === 'APP_DEPLOYMENT' && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200">
                 <div className="flex items-center gap-2 font-bold text-amber-900 text-sm mb-1">
-                  <Smartphone className="w-4 h-4 text-amber-700" />
-                  <span>The Afro Box App (Mobile, Tablet & PWA)</span>
+                  <Globe className="w-4 h-4 text-amber-700" />
+                  <span>AfroBox Web (Beta Version)</span>
                 </div>
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  This build is the dedicated <strong>Afro Box App</strong> version, engineered specifically for touchscreens, mobile tablets, and handheld devices. It features offline caching, landscape quick docks, and local audio narration.
+                  This build is the official <strong>AfroBox Web</strong> beta release, designed for testing, community sharing, grant funding, and interactive storytelling across browsers, tablets, and smartboards.
                 </p>
               </div>
 
