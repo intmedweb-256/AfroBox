@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
 import { SAMPLE_STORIES } from './src/data/sampleStories';
 import { Story } from './src/types/story';
 
@@ -234,6 +235,63 @@ async function startServer() {
       message: 'Stories reset to default library',
       count: storiesStore.length
     });
+  });
+
+  // POST /api/tts - High-fidelity Natural Griot / African Storyteller Text-To-Speech
+  app.post('/api/tts', async (req, res) => {
+    try {
+      const { text, voiceName = 'Kore', style } = req.body;
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'Text is required' });
+      }
+
+      const trimmedText = text.slice(0, 1600);
+      const ai = new GoogleGenAI({});
+
+      const storytellingStyle =
+        style ||
+        'Warm, engaging, natural African oral storyteller with gentle rhythm, natural cadence, and expressive pacing for young listeners';
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              {
+                text: trimmedText,
+                speechMetadata: {
+                  style: storytellingStyle
+                }
+              }
+            ]
+          }
+        ],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: voiceName || 'Kore' }
+            }
+          }
+        }
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (!base64Audio) {
+        return res.status(500).json({ error: 'No audio returned from speech model' });
+      }
+
+      res.json({
+        success: true,
+        audioUrl: `data:audio/wav;base64,${base64Audio}`,
+        voiceName,
+        source: 'gemini-tts'
+      });
+    } catch (err: any) {
+      console.error('TTS endpoint error:', err);
+      res.status(500).json({ error: err?.message || 'Failed to synthesize speech audio' });
+    }
   });
 
   // Vite middleware for development vs static serve for production

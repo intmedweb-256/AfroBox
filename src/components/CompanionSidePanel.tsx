@@ -152,7 +152,7 @@ export const CompanionSidePanel: React.FC<CompanionSidePanelProps> = ({
                     <span className="text-[10px] font-black uppercase tracking-wider text-[#1D3E2F]">
                       Family Voice Track
                     </span>
-                    {familyCast && Object.keys(familyCast.sceneRecordings).length > 0 && (
+                    {familyCast && familyCast.sceneRecordings && Object.keys(familyCast.sceneRecordings).length > 0 && (
                       <span className="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-bold">
                         {Object.keys(familyCast.sceneRecordings).length} Scenes
                       </span>
@@ -160,7 +160,7 @@ export const CompanionSidePanel: React.FC<CompanionSidePanelProps> = ({
                   </div>
 
                   <p className="text-xs text-[#7C4728]">
-                    {familyCast && Object.keys(familyCast.sceneRecordings).length > 0
+                    {familyCast && familyCast.sceneRecordings && Object.keys(familyCast.sceneRecordings).length > 0
                       ? 'Your family voice recordings replace the default narrator when playing scenes!'
                       : 'Record yourself as narrator, and have your wife and son voice characters!'}
                   </p>

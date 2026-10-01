@@ -15,13 +15,18 @@ import {
   GraduationCap,
   Music,
   HelpCircle,
-  Rocket
+  Rocket,
+  Sliders,
+  Star,
+  BarChart3
 } from 'lucide-react';
 import { PillarId, AgeTier } from '../types/afrobox';
 import { gamificationService, LevelInfo } from '../services/gamificationService';
 import { storageService } from '../services/storageService';
 import { audioEngine } from '../services/audioEngine';
 import { useSchoolMode } from '../context/SchoolModeContext';
+import { profileService } from '../services/profileService';
+import { LearnerProfile } from '../types/profile';
 
 interface LandscapeHUDProps {
   currentPillar: PillarId | 'HOME' | 'LAUNCHER';
@@ -33,6 +38,9 @@ interface LandscapeHUDProps {
   ageTier: AgeTier;
   onOpenTour?: () => void;
   onOpenDeployment?: () => void;
+  onOpenVoiceSettings?: () => void;
+  onOpenProfiles?: () => void;
+  onOpenMetrics?: () => void;
 }
 
 export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
@@ -44,21 +52,32 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
   onToggleVoice,
   ageTier,
   onOpenTour,
-  onOpenDeployment
+  onOpenDeployment,
+  onOpenVoiceSettings,
+  onOpenProfiles,
+  onOpenMetrics
 }) => {
   const [levelInfo, setLevelInfo] = useState<LevelInfo>(gamificationService.getLevelInfo());
   const [continentProgress, setContinentProgress] = useState(gamificationService.getContinentalProgress());
   const [discoveredWordsCount, setDiscoveredWordsCount] = useState<number>(0);
   const [hasFamilyVoices, setHasFamilyVoices] = useState<boolean>(false);
+  const [activeProfile, setActiveProfile] = useState<LearnerProfile>(profileService.getActiveProfile());
 
   const { isSchoolMode, setIsCurriculumOpen, toggleFullscreen } = useSchoolMode();
 
   useEffect(() => {
     updateStats();
-    const unsubscribe = gamificationService.subscribe(() => {
+    const unsubscribeGamification = gamificationService.subscribe(() => {
       updateStats();
     });
-    return () => unsubscribe();
+    const unsubscribeProfile = profileService.subscribe(() => {
+      setActiveProfile(profileService.getActiveProfile());
+      updateStats();
+    });
+    return () => {
+      unsubscribeGamification();
+      unsubscribeProfile();
+    };
   }, []);
 
   const updateStats = () => {
@@ -107,10 +126,6 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
               <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900">
                 BETA
               </span>
-              <span className="hidden lg:inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded-full border border-amber-300">
-                <span>🇺🇬</span>
-                <span>Uganda Edition</span>
-              </span>
             </div>
             <div className="text-[10px] text-[#7C4728] font-bold tracking-tight mt-0.5">
               African Stories, Origins & Living Heritage
@@ -133,75 +148,40 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
         </button>
       </div>
 
-      {/* 2. Center: Gamified HUD Meters (Level, XP Progress Bar & Continental Radar) */}
-      <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto py-0.5">
-        {/* Level Badge & XP Progress Bar */}
-        <div className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-2xl border border-[#E6DCBF] shadow-2xs shrink-0">
-          <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#E25822] to-[#C85A32] text-white flex items-center justify-center text-xs font-black shrink-0">
-            {levelInfo.badgeEmoji}
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center justify-between text-[10px] font-extrabold text-[#23211E] gap-2">
-              <span className="text-[#C85A32]">LVL {levelInfo.level}</span>
-              <span className="text-[#7C4728] hidden sm:inline">{levelInfo.title}</span>
-            </div>
-            {/* Animated XP Meter */}
-            <div className="w-20 sm:w-28 h-2 rounded-full bg-stone-100 border border-stone-200 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#E25822] to-[#F4B32A] rounded-full transition-all duration-500"
-                style={{ width: `${levelInfo.progressPercent}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Continental Radar Meter */}
-        <div className="hidden lg:flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-2xl border border-[#E6DCBF] shadow-2xs shrink-0">
-          <Globe className="w-4 h-4 text-[#1D3E2F] shrink-0" />
-          <div className="flex flex-col">
-            <div className="text-[10px] font-extrabold text-[#23211E] flex items-center justify-between gap-2">
-              <span>Continent Radar</span>
-              <span className="text-emerald-700 font-black">{continentProgress.overallPercent}%</span>
-            </div>
-            {/* 5-segment African region meter */}
-            <div className="flex items-center gap-1">
-              {continentProgress.regions.map((reg, rIdx) => (
-                <div
-                  key={rIdx}
-                  className={`w-3.5 h-1.5 rounded-xs transition-all ${
-                    reg.percent >= 50
-                      ? 'bg-emerald-600'
-                      : reg.percent > 0
-                      ? 'bg-amber-400'
-                      : 'bg-stone-200'
-                  }`}
-                  title={`${reg.region}: ${reg.percent}%`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Words Chest Gem Counter */}
-        <div
-          onClick={() => onSelectPillar('MY_BOX')}
-          className="flex items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-2xl border border-[#E6DCBF] shadow-2xs cursor-pointer hover:bg-[#F0E8D0] transition-colors shrink-0"
-          title="Discovered Indigenous Words"
+      {/* 2. Center: Sleek Unified Learner & Level Capsule (Zero Horizontal Scroll on all screens) */}
+      <div className="flex items-center justify-center shrink-0">
+        <button
+          onClick={onOpenProfiles}
+          className="group flex items-center gap-2 sm:gap-2.5 px-3 py-1.5 rounded-2xl bg-white hover:bg-amber-50 border border-[#E6DCBF] shadow-2xs hover:shadow-xs transition-all hover:scale-101 cursor-pointer"
+          title={`Learner: ${activeProfile.name} • Level ${levelInfo.level} (${levelInfo.title}). Tap to switch profiles, view stars, or backup.`}
         >
-          <span className="text-sm">💎</span>
-          <div className="text-[11px] font-extrabold text-[#23211E]">
-            <span>{discoveredWordsCount}</span>
-            <span className="hidden sm:inline text-[#7C4728] ml-1">Words</span>
+          {/* Avatar with cultural color accent */}
+          <div
+            className="w-7 h-7 rounded-xl flex items-center justify-center text-base shadow-2xs shrink-0 ring-1 ring-amber-300"
+            style={{ backgroundColor: `${activeProfile.avatarColor}25` }}
+          >
+            {activeProfile.avatar}
           </div>
-        </div>
 
-        {/* Family Voice Cast Status Indicator */}
-        {hasFamilyVoices && (
-          <div className="hidden xl:flex items-center gap-1 bg-emerald-50 px-2.5 py-1.5 rounded-2xl border border-emerald-300 text-[11px] font-black text-emerald-950 shrink-0">
-            <Users className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Family Voice Cast Active</span>
+          {/* Child Name & Level */}
+          <div className="flex flex-col text-left leading-none">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-black text-[#23211E] tracking-tight">{activeProfile.name}</span>
+              <span className="text-[10px] font-black text-[#C85A32] bg-amber-100/90 px-1.5 py-0.5 rounded-md">
+                Lvl {levelInfo.level}
+              </span>
+            </div>
+            <span className="text-[9px] font-extrabold text-[#7C4728] mt-0.5 hidden sm:inline">
+              {activeProfile.schoolGrade || `Ages ${activeProfile.ageTier}`} • {levelInfo.title}
+            </span>
           </div>
-        )}
+
+          {/* Stars Count Pill */}
+          <div className="flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200/90 text-[11px] font-black text-amber-900">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+            <span>{activeProfile.stars || 100}</span>
+          </div>
+        </button>
       </div>
 
       {/* 3. Right: Control Toggles (Kora Sound FX, Curriculum, Fullscreen & Side Panel Toggle) */}
@@ -227,6 +207,29 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
         >
           {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
         </button>
+
+        {/* Voice Narrator Tone & Voice Settings */}
+        {onOpenVoiceSettings && (
+          <button
+            onClick={onOpenVoiceSettings}
+            className="p-2 rounded-xl border border-[#E6DCBF] bg-[#FBF7EE] hover:bg-[#F0E8D0] text-[#7C4728] shadow-2xs transition-colors"
+            title="Choose Narrator Voice, Tone & Reading Pace"
+          >
+            <Sliders className="w-4 h-4 text-[#C85A32]" />
+          </button>
+        )}
+
+        {/* Audience & Advertiser Analytics */}
+        {onOpenMetrics && (
+          <button
+            onClick={onOpenMetrics}
+            className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-black shadow-2xs transition-colors"
+            title="View Audience Engagement, Pillar Traffic & Advertiser Deck"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="hidden xl:inline">Analytics</span>
+          </button>
+        )}
 
         {/* Beta Testing & Roadmap Suite */}
         {onOpenDeployment && (

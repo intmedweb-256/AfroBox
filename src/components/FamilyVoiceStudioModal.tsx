@@ -19,7 +19,8 @@ import {
   Award,
   Upload,
   Link as LinkIcon,
-  Globe
+  Globe,
+  Download
 } from 'lucide-react';
 import { Story, FamilyVoiceProfile, FamilyRole, StoryFamilyVoiceCast, SceneVoiceRecording } from '../types/story';
 import { storageService } from '../services/storageService';
@@ -38,11 +39,15 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
   story,
   onCastUpdated
 }) => {
-  const [profiles, setProfiles] = useState<FamilyVoiceProfile[]>([]);
+  const [profiles, setProfiles] = useState<FamilyVoiceProfile[]>(() => {
+    return storageService.getFamilyProfiles();
+  });
   const [selectedProfileId, setSelectedProfileId] = useState<string>('profile_dad');
   const [currentSceneIndex, setCurrentSceneIndex] = useState<number>(0);
 
-  const [familyCast, setFamilyCast] = useState<StoryFamilyVoiceCast | null>(null);
+  const [familyCast, setFamilyCast] = useState<StoryFamilyVoiceCast | null>(() => {
+    return story?.id ? storageService.getStoryFamilyCast(story.id) : null;
+  });
 
   // Recording State
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -66,14 +71,14 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
   const [remoteAudioUrl, setRemoteAudioUrl] = useState<string>('');
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && story?.id) {
       loadData();
     }
     return () => {
       audioEngine.stopAudioUrl();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isOpen, story.id]);
+  }, [isOpen, story?.id]);
 
   const loadData = () => {
     const loadedProfiles = storageService.getFamilyProfiles();
@@ -81,15 +86,29 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
     if (loadedProfiles.length > 0 && !selectedProfileId) {
       setSelectedProfileId(loadedProfiles[0].id);
     }
-    const cast = storageService.getStoryFamilyCast(story.id);
-    setFamilyCast(cast);
+    if (story?.id) {
+      const cast = storageService.getStoryFamilyCast(story.id);
+      setFamilyCast(cast);
+    }
   };
 
   if (!isOpen) return null;
 
-  const currentParagraph = story.paragraphs[currentSceneIndex] || story.paragraphs[0];
-  const currentSceneRecording = familyCast?.sceneRecordings[currentSceneIndex];
-  const activeProfile = profiles.find((p) => p.id === selectedProfileId) || profiles[0];
+  const paragraphs = story?.paragraphs || [];
+  const currentParagraph = paragraphs[currentSceneIndex] || paragraphs[0] || {
+    paragraphNumber: 1,
+    text: 'Listen and record your family voice for this scene.'
+  };
+  const currentSceneRecording = familyCast?.sceneRecordings ? familyCast.sceneRecordings[currentSceneIndex] : undefined;
+  const activeProfile: FamilyVoiceProfile = (profiles && profiles.find((p) => p.id === selectedProfileId)) || profiles[0] || {
+    id: 'profile_dad',
+    name: 'Dad',
+    role: 'DAD',
+    relationshipLabel: 'Main Story Narrator',
+    avatarEmoji: '👨🏾',
+    avatarColor: '#1D3E2F',
+    createdAt: new Date().toISOString()
+  };
 
   // Start Recording Active Scene
   const handleStartRecord = async () => {
@@ -275,7 +294,7 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
     setNewMemberLabel('');
   };
 
-  const totalRecordedScenes = familyCast
+  const totalRecordedScenes = familyCast?.sceneRecordings
     ? Object.keys(familyCast.sceneRecordings).length
     : 0;
 
@@ -453,7 +472,7 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
               <div className="pt-2 border-t border-[#E6DCBF] flex items-center justify-between text-xs">
                 <span className="font-bold text-[#7C4728]">Scenes Recorded:</span>
                 <span className="font-black text-[#C85A32] bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                  {totalRecordedScenes} / {story.paragraphs.length} scenes
+                  {totalRecordedScenes} / {paragraphs.length} scenes
                 </span>
               </div>
             </div>
@@ -478,8 +497,8 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
                 Select Scene:
               </span>
               <div className="flex items-center gap-1.5">
-                {story.paragraphs.map((_, idx) => {
-                  const hasRec = familyCast?.sceneRecordings[idx];
+                {(story?.paragraphs || []).map((_, idx) => {
+                  const hasRec = familyCast?.sceneRecordings ? familyCast.sceneRecordings[idx] : undefined;
                   const isCurrent = idx === currentSceneIndex;
                   return (
                     <button
@@ -511,7 +530,7 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
                 <div className="flex items-center justify-between pb-3 border-b border-[#E6DCBF]">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-black uppercase tracking-wider text-[#C85A32]">
-                      Scene {currentSceneIndex + 1} of {story.paragraphs.length}
+                      Scene {currentSceneIndex + 1} of {paragraphs.length}
                     </span>
                     <span className="text-xs font-extrabold text-[#23211E]">
                       • {currentParagraph.heading || `Part ${currentSceneIndex + 1}`}
@@ -592,6 +611,18 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Re-record</span>
                       </button>
+
+                      {currentSceneRecording.audioDataUrl && (
+                        <a
+                          href={currentSceneRecording.audioDataUrl}
+                          download={`${story?.id || 'story'}-scene-${currentSceneIndex + 1}-${currentSceneRecording.performerName.replace(/\s+/g, '_')}.webm`}
+                          className="py-1.5 px-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold flex items-center gap-1 border border-stone-300 transition-colors"
+                          title="Download recorded audio to your device"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Save Audio</span>
+                        </a>
+                      )}
 
                       <button
                         onClick={() => handleDeleteSceneRecording(currentSceneIndex)}
@@ -719,7 +750,7 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
                 </button>
 
                 <div className="text-xs font-bold text-[#7C4728]">
-                  Scene {currentSceneIndex + 1} of {story.paragraphs.length}
+                  Scene {currentSceneIndex + 1} of {paragraphs.length}
                 </div>
 
                 <button
@@ -727,10 +758,10 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
                     audioEngine.stopAudioUrl();
                     setPreviewPlayingScene(null);
                     setCurrentSceneIndex((prev) =>
-                      Math.min(story.paragraphs.length - 1, prev + 1)
+                      Math.min(paragraphs.length - 1, prev + 1)
                     );
                   }}
-                  disabled={currentSceneIndex === story.paragraphs.length - 1}
+                  disabled={currentSceneIndex === paragraphs.length - 1}
                   className="px-3.5 py-2 rounded-xl bg-[#1D3E2F] hover:bg-[#152e23] text-white font-extrabold text-xs disabled:opacity-40 shadow-2xs"
                 >
                   Next Scene →

@@ -22,6 +22,7 @@ import {
 import { AgeTier, PillarId } from '../types/afrobox';
 import { gamificationService, LevelInfo } from '../services/gamificationService';
 import { audioEngine } from '../services/audioEngine';
+import { profileService } from '../services/profileService';
 
 interface QuestLandingLauncherProps {
   onLaunchQuest: (pillar: PillarId, options: { ageTier: AgeTier; soundEnabled: boolean }) => void;
@@ -30,6 +31,7 @@ interface QuestLandingLauncherProps {
   voiceEnabled: boolean;
   onToggleVoice: () => void;
   totalDiscoveriesCount: number;
+  onOpenProfiles?: () => void;
 }
 
 export const QuestLandingLauncher: React.FC<QuestLandingLauncherProps> = ({
@@ -38,8 +40,10 @@ export const QuestLandingLauncher: React.FC<QuestLandingLauncherProps> = ({
   onChangeAgeTier,
   voiceEnabled,
   onToggleVoice,
-  totalDiscoveriesCount
+  totalDiscoveriesCount,
+  onOpenProfiles
 }) => {
+  const activeProfile = profileService.getActiveProfile();
   // Option 1: Explorer Persona / Focus
   const [selectedPersona, setSelectedPersona] = useState<string>('griot');
 
@@ -170,6 +174,31 @@ export const QuestLandingLauncher: React.FC<QuestLandingLauncherProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Active Learner Profile Badge */}
+        {onOpenProfiles && (
+          <div className="flex items-center gap-2 bg-[#FBF7EE] pl-2 pr-3 py-1.5 rounded-2xl border border-[#E6DCBF] shrink-0">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-lg shadow-2xs"
+              style={{ backgroundColor: `${activeProfile.avatarColor}20` }}
+            >
+              {activeProfile.avatar}
+            </div>
+            <div className="flex flex-col text-left">
+              <span className="text-xs font-black text-[#23211E]">{activeProfile.name}</span>
+              <span className="text-[10px] font-bold text-[#7C4728]">
+                {activeProfile.schoolGrade || `Ages ${activeProfile.ageTier}`}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={onOpenProfiles}
+              className="ml-2 text-xs font-black text-[#C85A32] hover:text-[#b04a25] underline decoration-amber-300 cursor-pointer"
+            >
+              Switch
+            </button>
+          </div>
+        )}
 
         {/* Right: Daily Quest status pill */}
         <div className="flex items-center gap-2 bg-amber-50 px-3.5 py-2 rounded-2xl border border-amber-200">

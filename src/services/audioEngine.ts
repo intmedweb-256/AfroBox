@@ -14,18 +14,245 @@ export interface AudioEngineListeners {
   onError?: (err: string) => void;
 }
 
+export type NarratorEngineType = 'AI_GRIOT' | 'BROWSER_SPEECH';
+export type AIGriotVoice = 'Kore' | 'Fenrir' | 'Puck' | 'Zephyr' | 'Charon';
+
+export interface GriotVoicePersona {
+  id: AIGriotVoice;
+  name: string;
+  title: string;
+  avatar: string;
+  description: string;
+  stylePrompt: string;
+}
+
+export const GRIOT_VOICE_PERSONAS: GriotVoicePersona[] = [
+  {
+    id: 'Kore',
+    name: 'Mama Griot',
+    title: 'Warm Matriarch Storyteller',
+    avatar: '👵🏾',
+    description: 'Nurturing, melodic, engaging oral storytelling for young children',
+    stylePrompt: 'Warm, nurturing, melodic African matriarch storyteller with gentle pacing and expressive pauses for young children'
+  },
+  {
+    id: 'Fenrir',
+    name: 'Baba Griot',
+    title: 'Wise Village Elder',
+    avatar: '👴🏾',
+    description: 'Deep, resonant, ancestral voice steeped in wisdom and epic legends',
+    stylePrompt: 'Deep, resonant, wise African village elder with commanding warmth and thoughtful cadence'
+  },
+  {
+    id: 'Puck',
+    name: 'Brother Kwaku',
+    title: 'Lively Folktale Griot',
+    avatar: '👦🏾',
+    description: 'Playful, animated, rhythmic narrator perfect for Anansi & animal fables',
+    stylePrompt: 'Cheerful, lively, animated African storyteller with high energy, playful rhythm, and warmth'
+  },
+  {
+    id: 'Zephyr',
+    name: 'Sister Amina',
+    title: 'Gentle Bedtime Storyteller',
+    avatar: '🌸',
+    description: 'Soft, soothing, tranquil voice ideal for quiet focus and evening reading',
+    stylePrompt: 'Gentle, soothing, tranquil, and clear voice with peaceful storytelling cadence for children'
+  },
+  {
+    id: 'Charon',
+    name: 'Elder Osei',
+    title: 'Historical Chronicler',
+    avatar: '📜',
+    description: 'Measured, noble, reflective narrator for geography and kingdom lore',
+    stylePrompt: 'Noble, measured, clear, and dignified African storyteller presenting rich cultural history'
+  }
+];
+
+export interface VoicePreferences {
+  voiceURI?: string;
+  pitch: number;
+  rate: number;
+  presetName?: 'WARM_STORYTELLER' | 'CLEAR_TEACHER' | 'YOUTHFUL_GRIOT' | 'CUSTOM';
+  narratorEngine?: NarratorEngineType;
+  aiVoiceName?: AIGriotVoice;
+}
+
+const VOICE_PREFS_KEY = 'afrobox_voice_preferences_v3';
+
+const DEFAULT_VOICE_PREFS: VoicePreferences = {
+  voiceURI: '',
+  pitch: 0.96, // warm, comforting African storytelling pitch
+  rate: 0.90,  // measured, natural pace for children
+  presetName: 'WARM_STORYTELLER',
+  narratorEngine: 'AI_GRIOT',
+  aiVoiceName: 'Kore'
+};
+
 class AudioEngine {
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private recordingStartTime = 0;
   private activeAudioElement: HTMLAudioElement | null = null;
+  private cachedVoices: SpeechSynthesisVoice[] = [];
+  private ttsAudioCache: Map<string, string> = new Map();
+  private abortController: AbortController | null = null;
+  private isProcessingAiSpeech = false;
+
+  constructor() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      this.cachedVoices = window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        this.cachedVoices = window.speechSynthesis.getVoices();
+      };
+    }
+  }
+
+  public getAvailableVoices(): SpeechSynthesisVoice[] {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const v = window.speechSynthesis.getVoices();
+      if (v.length > 0) this.cachedVoices = v;
+    }
+    return this.cachedVoices;
+  }
+
+  public getVoicePreferences(): VoicePreferences {
+    try {
+      const data = localStorage.getItem(VOICE_PREFS_KEY);
+      if (data) return { ...DEFAULT_VOICE_PREFS, ...JSON.parse(data) };
+    } catch {}
+    return { ...DEFAULT_VOICE_PREFS };
+  }
+
+  public saveVoicePreferences(prefs: Partial<VoicePreferences>): VoicePreferences {
+    const current = this.getVoicePreferences();
+    const updated = { ...current, ...prefs };
+    try {
+      localStorage.setItem(VOICE_PREFS_KEY, JSON.stringify(updated));
+    } catch {}
+    return updated;
+  }
 
   // READ ALOUD / NARRATION PLAYBACK
   public speakParagraphs(
     paragraphs: string[],
     startIndex: number = 0,
-    rate: number = 0.95,
+    rateOverride?: number,
+    listeners: AudioEngineListeners = {}
+  ): void {
+    this.stopSpeaking();
+
+    const prefs = this.getVoicePreferences();
+    const useAiGriot = prefs.narratorEngine !== 'BROWSER_SPEECH';
+
+    if (useAiGriot) {
+      this.speakParagraphsAi(paragraphs, startIndex, prefs, rateOverride, listeners);
+    } else {
+      this.speakParagraphsBrowser(paragraphs, startIndex, rateOverride, listeners);
+    }
+  }
+
+  // AI Studio High-Fidelity Griot Narration
+  private async speakParagraphsAi(
+    paragraphs: string[],
+    startIndex: number,
+    prefs: VoicePreferences,
+    rateOverride: number | undefined,
+    listeners: AudioEngineListeners
+  ): Promise<void> {
+    let currentIndex = startIndex;
+    this.abortController = new AbortController();
+    const signal = this.abortController.signal;
+    this.isProcessingAiSpeech = true;
+
+    const persona =
+      GRIOT_VOICE_PERSONAS.find((p) => p.id === (prefs.aiVoiceName || 'Kore')) ||
+      GRIOT_VOICE_PERSONAS[0];
+
+    const playNextParagraph = async () => {
+      if (signal.aborted || !this.isProcessingAiSpeech) return;
+
+      if (currentIndex >= paragraphs.length) {
+        this.isProcessingAiSpeech = false;
+        listeners.onEnd?.();
+        return;
+      }
+
+      listeners.onParagraphChange?.(currentIndex);
+      const textToSpeak = paragraphs[currentIndex]?.trim();
+
+      if (!textToSpeak) {
+        currentIndex++;
+        playNextParagraph();
+        return;
+      }
+
+      const cacheKey = `${persona.id}:${textToSpeak}`;
+      let audioUrl = this.ttsAudioCache.get(cacheKey);
+
+      if (!audioUrl) {
+        try {
+          const res = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: textToSpeak,
+              voiceName: persona.id,
+              style: persona.stylePrompt
+            }),
+            signal
+          });
+
+          if (!res.ok) {
+            throw new Error(`TTS server returned status ${res.status}`);
+          }
+
+          const data = await res.json();
+          if (data.audioUrl) {
+            audioUrl = data.audioUrl;
+            this.ttsAudioCache.set(cacheKey, audioUrl!);
+          } else {
+            throw new Error('No audio in response');
+          }
+        } catch (fetchErr: any) {
+          if (signal.aborted) return;
+          console.warn('AI TTS failed or unavailable, falling back to browser speech:', fetchErr);
+          // Gracefully fallback to browser speech synthesis
+          this.speakParagraphsBrowser(paragraphs, currentIndex, rateOverride, listeners);
+          return;
+        }
+      }
+
+      if (signal.aborted) return;
+
+      // Play audio chunk
+      const audio = this.playAudioUrl(
+        audioUrl!,
+        () => {
+          currentIndex++;
+          playNextParagraph();
+        },
+        (err) => {
+          console.warn('AI Audio play error, falling back to browser:', err);
+          this.speakParagraphsBrowser(paragraphs, currentIndex, rateOverride, listeners);
+        }
+      );
+
+      // Apply playback speed
+      if (audio && rateOverride) {
+        audio.playbackRate = rateOverride;
+      }
+    };
+
+    playNextParagraph();
+  }
+
+  // Device Browser Web Speech API Narration
+  public speakParagraphsBrowser(
+    paragraphs: string[],
+    startIndex: number = 0,
+    rateOverride?: number,
     listeners: AudioEngineListeners = {}
   ): void {
     if (!('speechSynthesis' in window)) {
@@ -36,44 +263,56 @@ class AudioEngine {
     this.stopSpeaking();
 
     let currentIndex = startIndex;
+    const voices = this.getAvailableVoices();
+    const prefs = this.getVoicePreferences();
 
-    // Find best matching voice: prioritize regional African device voices (en-NG, en-ZA, en-KE, sw, etc.)
-    const voices = typeof window !== 'undefined' && 'speechSynthesis' in window
-      ? window.speechSynthesis.getVoices()
-      : [];
+    // 1. Try explicitly chosen voiceURI
+    let selectedVoice: SpeechSynthesisVoice | null = null;
+    if (prefs.voiceURI) {
+      selectedVoice = voices.find((v) => v.voiceURI === prefs.voiceURI) || null;
+    }
 
-    const africanVoice = voices.find((v) => {
-      const l = v.lang.toLowerCase();
-      const n = v.name.toLowerCase();
-      return (
-        l === 'en-ng' ||
-        l === 'en-za' ||
-        l === 'en-ke' ||
-        l === 'en-tz' ||
-        l === 'en-gh' ||
-        l === 'sw' ||
-        l.startsWith('sw-') ||
-        l.startsWith('yo') ||
-        l.startsWith('ha') ||
-        l.startsWith('ig') ||
-        l.startsWith('zu') ||
-        l.startsWith('xh') ||
-        n.includes('nigeria') ||
-        n.includes('south africa') ||
-        n.includes('kenya') ||
-        n.includes('swahili')
+    // 2. If not selected, prioritize regional African or high-quality natural voices
+    if (!selectedVoice) {
+      const africanVoice = voices.find((v) => {
+        const l = v.lang.toLowerCase();
+        const n = v.name.toLowerCase();
+        return (
+          l === 'en-ng' ||
+          l === 'en-za' ||
+          l === 'en-ke' ||
+          l === 'en-tz' ||
+          l === 'en-gh' ||
+          l === 'sw' ||
+          l.startsWith('sw-') ||
+          l.startsWith('yo') ||
+          l.startsWith('ha') ||
+          l.startsWith('ig') ||
+          l.startsWith('zu') ||
+          l.startsWith('xh') ||
+          n.includes('nigeria') ||
+          n.includes('south africa') ||
+          n.includes('kenya') ||
+          n.includes('swahili')
+        );
+      });
+
+      const naturalFallback = voices.find(
+        (v) =>
+          v.lang.startsWith('en') &&
+          (v.name.includes('Natural') ||
+            v.name.includes('Neural') ||
+            v.name.includes('Google') ||
+            v.name.includes('Siri') ||
+            v.name.includes('Samantha') ||
+            v.name.includes('English'))
       );
-    });
 
-    const naturalFallback = voices.find(
-      (v) =>
-        v.lang.startsWith('en') &&
-        (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('English'))
-    );
+      selectedVoice = africanVoice || naturalFallback || voices[0] || null;
+    }
 
-    const preferredVoice = africanVoice || naturalFallback || null;
-    const computedPitch = africanVoice ? 1.02 : 1.04;
-    const computedRate = africanVoice ? rate : Math.max(0.85, rate * 0.94);
+    const computedRate = rateOverride !== undefined ? rateOverride : (prefs.rate || 0.90);
+    const computedPitch = prefs.pitch || 0.96;
 
     const playNext = () => {
       if (currentIndex >= paragraphs.length) {
@@ -87,8 +326,8 @@ class AudioEngine {
       utterance.rate = computedRate;
       utterance.pitch = computedPitch;
 
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
+      if (selectedVoice) {
+        utterance.voice = selectedVoice;
       }
 
       utterance.onend = () => {
@@ -107,6 +346,72 @@ class AudioEngine {
     };
 
     playNext();
+  }
+
+  public async testVoiceSample(
+    sampleText: string = 'Welcome to AfroBox! Let us explore the wonders, wisdom, and living traditions of our ancestors together.',
+    voiceURI?: string,
+    pitch?: number,
+    rate?: number,
+    aiVoice?: AIGriotVoice,
+    engine?: NarratorEngineType,
+    onEnd?: () => void
+  ): Promise<void> {
+    this.stopSpeaking();
+    const prefs = this.getVoicePreferences();
+    const targetEngine = engine || prefs.narratorEngine || 'AI_GRIOT';
+
+    if (targetEngine === 'AI_GRIOT') {
+      const selectedAiVoice = aiVoice || prefs.aiVoiceName || 'Kore';
+      const persona =
+        GRIOT_VOICE_PERSONAS.find((p) => p.id === selectedAiVoice) || GRIOT_VOICE_PERSONAS[0];
+
+      try {
+        const res = await fetch('/api/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: sampleText,
+            voiceName: persona.id,
+            style: persona.stylePrompt
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.audioUrl) {
+            this.playAudioUrl(data.audioUrl, () => onEnd?.(), () => onEnd?.());
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('AI voice preview failed, falling back to browser:', err);
+      }
+    }
+
+    // Fallback to browser voice test
+    if (!('speechSynthesis' in window)) {
+      onEnd?.();
+      return;
+    }
+
+    const voices = this.getAvailableVoices();
+    const targetVoiceURI = voiceURI !== undefined ? voiceURI : prefs.voiceURI;
+    const targetVoice = voices.find((v) => v.voiceURI === targetVoiceURI) || null;
+
+    const utterance = new SpeechSynthesisUtterance(sampleText);
+    utterance.rate = rate !== undefined ? rate : prefs.rate;
+    utterance.pitch = pitch !== undefined ? pitch : prefs.pitch;
+
+    if (targetVoice) {
+      utterance.voice = targetVoice;
+    }
+
+    utterance.onend = () => onEnd?.();
+    utterance.onerror = () => onEnd?.();
+
+    this.currentUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
   }
 
   public pauseSpeaking(): void {

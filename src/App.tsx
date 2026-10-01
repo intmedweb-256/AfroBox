@@ -25,6 +25,8 @@ import { SchoolModeProvider } from './context/SchoolModeContext';
 import { BannerAd } from './components/BannerAd';
 import { InterfaceTourModal } from './components/InterfaceTourModal';
 import { DeploymentModal } from './components/DeploymentModal';
+import { VoiceSettingsModal } from './components/VoiceSettingsModal';
+import { LearnerProfileModal } from './components/LearnerProfileModal';
 import {
   Compass,
   BookOpen,
@@ -44,6 +46,8 @@ export default function App() {
   const [ageTier, setAgeTier] = useState<AgeTier>('6-8');
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [isDeploymentOpen, setIsDeploymentOpen] = useState<boolean>(false);
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState<boolean>(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
 
   // Landscape companion side panel state
   const [isSidePanelOpen, setIsSidePanelOpen] = useState<boolean>(() => {
@@ -191,6 +195,8 @@ export default function App() {
           ageTier={ageTier}
           onOpenTour={() => setIsTourOpen(true)}
           onOpenDeployment={() => setIsDeploymentOpen(true)}
+          onOpenVoiceSettings={() => setIsVoiceSettingsOpen(true)}
+          onOpenProfiles={() => setIsProfileModalOpen(true)}
         />
 
         {/* Master Landscape Stage Flex: Left Dock | Center Canvas | Right Companion Panel */}
@@ -202,6 +208,7 @@ export default function App() {
             onOpenFamilyStudio={() => setIsFamilyStudioOpen(true)}
             onOpenTour={() => setIsTourOpen(true)}
             onOpenDeployment={() => setIsDeploymentOpen(true)}
+            onOpenProfiles={() => setIsProfileModalOpen(true)}
           />
 
           {/* Center Stage Viewport (Contained Zero-Scroll Canvas) */}
@@ -215,6 +222,7 @@ export default function App() {
                 voiceEnabled={voiceEnabled}
                 onToggleVoice={handleToggleVoice}
                 totalDiscoveriesCount={totalDiscoveriesCount}
+                onOpenProfiles={() => setIsProfileModalOpen(true)}
               />
             )}
 
@@ -451,10 +459,27 @@ export default function App() {
           onHideNextTime={handleHideTourNextTime}
         />
 
-        {/* Launch Steps & Beta Testing Suite (Target: September 27th) */}
+        {/* Beta Testing & Roadmap Suite */}
         <DeploymentModal
           isOpen={isDeploymentOpen}
           onClose={() => setIsDeploymentOpen(false)}
+        />
+
+        {/* Narrator Voice & Tone Settings Modal */}
+        <VoiceSettingsModal
+          isOpen={isVoiceSettingsOpen}
+          onClose={() => setIsVoiceSettingsOpen(false)}
+          onOpenFamilyStudio={() => setIsFamilyStudioOpen(true)}
+        />
+
+        {/* Child & Student Learner Profiles Modal */}
+        <LearnerProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          onProfileChanged={(p) => {
+            setAgeTier(p.ageTier);
+            setTotalDiscoveriesCount(afroboxStorage.getMyBoxState().discoveries?.length || 0);
+          }}
         />
       </div>
     </SchoolModeProvider>

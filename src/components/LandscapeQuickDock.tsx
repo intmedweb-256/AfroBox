@@ -18,6 +18,7 @@ interface LandscapeQuickDockProps {
   onOpenFamilyStudio?: () => void;
   onOpenTour?: () => void;
   onOpenDeployment?: () => void;
+  onOpenProfiles?: () => void;
 }
 
 export const LandscapeQuickDock: React.FC<LandscapeQuickDockProps> = ({
@@ -25,7 +26,8 @@ export const LandscapeQuickDock: React.FC<LandscapeQuickDockProps> = ({
   onSelectPillar,
   onOpenFamilyStudio,
   onOpenTour,
-  onOpenDeployment
+  onOpenDeployment,
+  onOpenProfiles
 }) => {
 
   const dockItems: {
@@ -110,8 +112,19 @@ export const LandscapeQuickDock: React.FC<LandscapeQuickDockProps> = ({
         })}
       </div>
 
-      {/* Bottom Auxiliary Docks: Family Studio, Launch Suite & App Tour */}
+      {/* Bottom Auxiliary Docks: Learner Profiles, Launch Suite, Family Studio & App Tour */}
       <div className="flex flex-col items-center gap-2 w-full pt-2 border-t border-[#E6DCBF]">
+        {onOpenProfiles && (
+          <button
+            onClick={onOpenProfiles}
+            className="w-full py-2 rounded-2xl bg-white hover:bg-amber-50 border border-[#E6DCBF] text-[#23211E] flex flex-col items-center justify-center gap-0.5 transition-all shadow-2xs hover:scale-102"
+            title="Switch or manage child learner profiles"
+          >
+            <span className="text-base leading-none">👤</span>
+            <span className="text-[9px] font-black text-[#7C4728]">Learners</span>
+          </button>
+        )}
+
         {onOpenDeployment && (
           <button
             onClick={onOpenDeployment}

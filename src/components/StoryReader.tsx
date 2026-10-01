@@ -25,7 +25,9 @@ import {
   X,
   Compass,
   Brain,
-  Layers
+  Layers,
+  Sliders,
+  FileText
 } from 'lucide-react';
 import { Story, VocabularyWord, Narration, ChildRecording, StoryFamilyVoiceCast } from '../types/story';
 import { PillarId } from '../types/afrobox';
@@ -34,8 +36,10 @@ import { LearningJourney } from './LearningJourney';
 import { VocabularyModal } from './VocabularyModal';
 import { StoryIllustration } from './StoryIllustration';
 import { FamilyVoiceStudioModal } from './FamilyVoiceStudioModal';
+import { VoiceSettingsModal } from './VoiceSettingsModal';
 import { audioEngine } from '../services/audioEngine';
 import { storageService } from '../services/storageService';
+import { analyticsService } from '../services/analyticsService';
 
 interface StoryReaderProps {
   story: Story;
@@ -60,8 +64,8 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
   isCompleted,
   onNavigatePillar
 }) => {
-  // Reading Mode: 'PAGE' (Classroom Page-by-Page zero-scroll) vs 'SCROLL' (Continuous)
-  const [pageMode, setPageMode] = useState<'PAGE' | 'SCROLL'>('PAGE');
+  // Full Story Transcript overlay for teachers and parents
+  const [showFullTranscript, setShowFullTranscript] = useState<boolean>(false);
 
   // Active Scene / Paragraph Index
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState<number>(0);
@@ -107,6 +111,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
   const [isSchoolGuideOpen, setIsSchoolGuideOpen] = useState(false);
   const [isJourneyOpen, setIsJourneyOpen] = useState(false);
   const [isFamilyStudioOpen, setIsFamilyStudioOpen] = useState(false);
+  const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState(false);
 
   // Family Voice Cast State (User / Wife / Son)
   const [familyCast, setFamilyCast] = useState<StoryFamilyVoiceCast | null>(null);
@@ -125,10 +130,18 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
     const cast = storageService.getStoryFamilyCast(story.id);
     setFamilyCast(cast);
 
+    // Track analytics for story engagement
+    analyticsService.trackStoryStart(story.id, story.title, story.country, story.region);
+    const storyStartTime = Date.now();
+
     return () => {
       audioEngine.stopSpeaking();
       audioEngine.stopAudioUrl();
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      const elapsed = Math.round((Date.now() - storyStartTime) / 1000);
+      if (elapsed > 10) {
+        analyticsService.trackAudioListened(elapsed, 'Griot Narrator');
+      }
     };
   }, [story.id]);
 
@@ -142,7 +155,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
     }
 
     // Check if there is a family voice recording for this scene
-    const sceneRec = familyCast?.sceneRecordings[currentParagraphIndex];
+    const sceneRec = familyCast?.sceneRecordings ? familyCast.sceneRecordings[currentParagraphIndex] : undefined;
 
     if (familyCast?.isDefaultNarrator && sceneRec && sceneRec.audioDataUrl) {
       setIsPlaying(true);
@@ -429,7 +442,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
           <button
             onClick={() => setIsFamilyStudioOpen(true)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-extrabold transition-all shadow-2xs ${
-              familyCast && Object.keys(familyCast.sceneRecordings).length > 0
+              familyCast && familyCast.sceneRecordings && Object.keys(familyCast.sceneRecordings).length > 0
                 ? 'bg-amber-100 text-amber-950 border-amber-400'
                 : 'bg-white hover:bg-[#F0E8D0] text-[#7C4728] border-[#E6DCBF]'
             }`}
@@ -437,7 +450,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
           >
             <Users className="w-3.5 h-3.5 text-[#C85A32]" />
             <span className="hidden sm:inline">Family Voices</span>
-            {familyCast && Object.keys(familyCast.sceneRecordings).length > 0 && (
+            {familyCast && familyCast.sceneRecordings && Object.keys(familyCast.sceneRecordings).length > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-[#1D3E2F] text-white text-[10px] font-black">
                 {Object.keys(familyCast.sceneRecordings).length}
               </span>
@@ -467,41 +480,24 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
             {isSaved ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
           </button>
 
-          {/* Mode Switcher: Scene by Scene vs Continuous */}
-          <div className="flex items-center bg-[#F0E8D0] p-0.5 rounded-xl border border-[#E0D4B2]">
-            <button
-              onClick={() => setPageMode('PAGE')}
-              className={`px-2 py-1 rounded-lg text-xs font-extrabold transition-all ${
-                pageMode === 'PAGE'
-                  ? 'bg-[#1D3E2F] text-white shadow-2xs'
-                  : 'text-[#7C4728] hover:text-[#23211E]'
-              }`}
-              title="Classroom Page-by-Page View"
-            >
-              📖 Scene
-            </button>
-            <button
-              onClick={() => setPageMode('SCROLL')}
-              className={`px-2 py-1 rounded-lg text-xs font-extrabold transition-all ${
-                pageMode === 'SCROLL'
-                  ? 'bg-[#1D3E2F] text-white shadow-2xs'
-                  : 'text-[#7C4728] hover:text-[#23211E]'
-              }`}
-              title="Continuous Scroll View"
-            >
-              📜 Scroll
-            </button>
-          </div>
+          {/* Educator / Parent Full Story Transcript Toggle */}
+          <button
+            onClick={() => setShowFullTranscript(!showFullTranscript)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-black transition-all flex items-center gap-1.5 shadow-2xs ${
+              showFullTranscript
+                ? 'bg-[#1D3E2F] text-white border-[#1D3E2F]'
+                : 'bg-white hover:bg-[#F0E8D0] text-[#7C4728] border-[#E6DCBF]'
+            }`}
+            title="Read full story transcript for lesson planning or parent preview"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Story Transcript</span>
+          </button>
         </div>
       </header>
 
-      {/* Main Reading Zone */}
-      {pageMode === 'PAGE' ? (
-        /* ====================================================================== */
-        /* CLASSROOM PAGE-BY-PAGE ZERO-SCROLL MODE                                 */
-        /* Fits on screen without scrolling, ideal for touchscreens & smartboards   */
-        /* ====================================================================== */
-        <div className="flex-1 flex flex-col justify-between overflow-hidden p-3 sm:p-5 max-w-5xl mx-auto w-full">
+      {/* Main Reading Zone: Classroom Scene-by-Scene Zero-Scroll Mode */}
+      <div className="flex-1 flex flex-col justify-between overflow-hidden p-3 sm:p-5 max-w-5xl mx-auto w-full">
           {/* Top Section: Scene Artwork Banner & Paragraph Heading */}
           <div className="flex flex-col lg:flex-row gap-4 items-center bg-white rounded-3xl p-3.5 sm:p-5 border-2 border-[#E6DCBF] shadow-xs shrink-0">
             {/* Story Scene Artwork */}
@@ -589,7 +585,7 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
             {/* Audio Voice Player for this scene */}
             <div className="flex flex-wrap items-center gap-2">
               {(() => {
-                const currentSceneRecording = familyCast?.sceneRecordings[currentParagraphIndex];
+                const currentSceneRecording = familyCast?.sceneRecordings ? familyCast.sceneRecordings[currentParagraphIndex] : undefined;
                 const isFamilyActive = familyCast?.isDefaultNarrator && !!currentSceneRecording;
 
                 return (
@@ -658,6 +654,16 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
                     {rate}x
                   </button>
                 ))}
+
+                {/* Voice Picker / Audio Settings Button */}
+                <button
+                  onClick={() => setIsVoiceSettingsOpen(true)}
+                  className="px-2 py-1 rounded-lg bg-[#F0E8D0] hover:bg-[#E6DCBF] text-[#7C4728] flex items-center gap-1 font-bold transition-colors cursor-pointer"
+                  title="Choose Narrator Voice, Tone & Reading Pace"
+                >
+                  <Sliders className="w-3 h-3 text-[#C85A32]" />
+                  <span className="hidden md:inline">Voice Tone</span>
+                </button>
               </div>
             </div>
 
@@ -706,109 +712,71 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
             </div>
           </div>
         </div>
-      ) : (
-        /* ====================================================================== */
-        /* CONTINUOUS SCROLL MODE (FOR FULL TEXT LOVERS)                          */
-        /* ====================================================================== */
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 max-w-4xl mx-auto w-full space-y-6">
-          {/* Top Audio & Quick Action Ribbon */}
-          <div className="bg-white rounded-2xl p-3.5 sm:p-4 border-2 border-[#E6DCBF] shadow-xs flex flex-wrap items-center justify-between gap-3 sticky top-0 z-20 backdrop-blur-md bg-white/95">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePlayFullStory}
-                className="py-2 px-4 rounded-xl bg-[#1D3E2F] hover:bg-[#152e23] text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-xs transition-all active:scale-95"
-              >
-                {isPlaying ? (
-                  <>
-                    <Pause className="w-4 h-4 fill-white" />
-                    <span>Pause Story Narration</span>
-                  </>
-                ) : (
-                  <>
-                    <Volume2 className="w-4 h-4 text-emerald-300" />
-                    <span>Listen to Full Story Aloud</span>
-                  </>
-                )}
-              </button>
+      </div>
 
-              <div className="hidden sm:flex items-center gap-1 text-[11px] font-bold text-[#7C4728]">
-                {[0.8, 1.0, 1.2].map((rate) => (
-                  <button
-                    key={rate}
-                    onClick={() => setSpeechRate(rate)}
-                    className={`px-2 py-1 rounded-lg ${
-                      speechRate === rate
-                        ? 'bg-[#1D3E2F] text-white'
-                        : 'bg-[#F0E8D0] text-[#7C4728] hover:bg-stone-200'
-                    }`}
-                  >
-                    {rate}x
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="text-xs font-semibold text-[#7C4728] flex items-center gap-1.5">
-              <span className="bg-amber-100 text-[#C85A32] font-black px-2 py-0.5 rounded-full text-[10px] border border-amber-300">
-                ✨ Interactive Words
-              </span>
-              <span className="hidden sm:inline">Tap highlighted words to view meaning</span>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-3xl p-5 border border-[#E6DCBF] shadow-xs">
-            <StoryIllustration
-              story={story}
-              aspectRatio="aspect-16/9"
-              showBadge={true}
-              showCaption={true}
-            />
-          </div>
-
-          <div className="space-y-4">
-            {story.paragraphs.map((p, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-2xl p-5 border border-[#E6DCBF] space-y-2 shadow-2xs"
-              >
-                <div className="flex items-center justify-between text-xs font-extrabold text-[#C85A32] uppercase">
-                  <span>Part {idx + 1}</span>
-                  <button
-                    onClick={() => {
-                      setCurrentParagraphIndex(idx);
-                      handlePlayCurrentScene();
-                    }}
-                    className="text-[11px] font-bold text-[#1D3E2F] hover:text-[#C85A32] flex items-center gap-1 normal-case px-2 py-0.5 rounded-md hover:bg-[#FBF7EE]"
-                    title="Listen to this section"
-                  >
-                    <Volume2 className="w-3 h-3" />
-                    <span>Listen to section</span>
-                  </button>
+      {/* Full Story Transcript Modal (for educators, parents, and deep reading) */}
+      {showFullTranscript && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setShowFullTranscript(false)}
+        >
+          <div
+            className="bg-[#FBF7EE] rounded-3xl border-2 border-[#E6DCBF] shadow-2xl max-w-3xl w-full p-5 sm:p-6 space-y-4 max-h-[88vh] flex flex-col animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[#E6DCBF] pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-5 h-5 text-[#C85A32]" />
+                <div>
+                  <h3 className="font-extrabold text-lg text-[#23211E] font-['Urbanist']">
+                    {story.title} • Full Story Transcript
+                  </h3>
+                  <p className="text-xs text-[#7C4728]">
+                    {story.country} • {story.culturalTradition} • {story.paragraphs.length} Scenes
+                  </p>
                 </div>
-                <p className="text-base sm:text-lg text-[#23211E] leading-relaxed">
-                  {p.text.split(' ').map((word, wIdx) => {
-                    const clean = word.replace(/[.,/#!$%^&*;:{}=\-_`~()—"']/g, '').trim().toLowerCase();
-                    const matchedVocab = story.vocabulary.find((v) => {
-                      const target = v.word.toLowerCase();
-                      return clean === target || clean.includes(target) || target.includes(clean);
-                    });
-
-                    return matchedVocab ? (
-                      <button
-                        key={wIdx}
-                        onClick={() => handleWordClick(matchedVocab.word)}
-                        className="inline-flex items-baseline font-extrabold text-[#C85A32] bg-amber-50 hover:bg-amber-200 border-b-2 border-amber-500 rounded px-1.5 py-0.5 mx-0.5 transition-all cursor-pointer shadow-2xs"
-                        title={`Tap to explore "${matchedVocab.word}"`}
-                      >
-                        {word}{' '}
-                      </button>
-                    ) : (
-                      <span key={wIdx}>{word} </span>
-                    );
-                  })}
-                </p>
               </div>
-            ))}
+              <button
+                onClick={() => setShowFullTranscript(false)}
+                className="p-1.5 rounded-xl hover:bg-[#F0E8D0] text-[#7C4728] transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3.5 pr-1">
+              {story.paragraphs.map((p, idx) => (
+                <div
+                  key={idx}
+                  className="bg-white rounded-2xl p-4 border border-[#E6DCBF] shadow-2xs space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-xs font-black text-[#C85A32]">
+                    <span>Scene {idx + 1} {p.heading ? `• ${p.heading}` : ''}</span>
+                    <button
+                      onClick={() => {
+                        setCurrentParagraphIndex(idx);
+                        setShowFullTranscript(false);
+                      }}
+                      className="text-xs text-[#1D3E2F] hover:underline font-bold"
+                    >
+                      Jump to Scene →
+                    </button>
+                  </div>
+                  <p className="text-sm sm:text-base text-[#23211E] leading-relaxed">
+                    {p.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-[#E6DCBF] flex justify-end shrink-0">
+              <button
+                onClick={() => setShowFullTranscript(false)}
+                className="px-4 py-2 rounded-xl bg-[#1D3E2F] text-white text-xs font-black hover:bg-[#152e23] transition-all"
+              >
+                Back to Story Reading
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -997,6 +965,12 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
         onClose={() => setIsFamilyStudioOpen(false)}
         story={story}
         onCastUpdated={(newCast) => setFamilyCast(newCast ? { ...newCast } : null)}
+      />
+
+      {/* 7. Narrator Voice & Tone Settings Modal */}
+      <VoiceSettingsModal
+        isOpen={isVoiceSettingsOpen}
+        onClose={() => setIsVoiceSettingsOpen(false)}
       />
     </div>
   );
