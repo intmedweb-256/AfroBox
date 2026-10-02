@@ -712,7 +712,6 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
             </div>
           </div>
         </div>
-      </div>
 
       {/* Full Story Transcript Modal (for educators, parents, and deep reading) */}
       {showFullTranscript && (

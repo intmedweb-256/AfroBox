@@ -8,7 +8,8 @@ import {
   PackageOpen,
   Users,
   HelpCircle,
-  Rocket
+  Rocket,
+  BarChart3
 } from 'lucide-react';
 import { PillarId } from '../types/afrobox';
 
@@ -19,6 +20,7 @@ interface LandscapeQuickDockProps {
   onOpenTour?: () => void;
   onOpenDeployment?: () => void;
   onOpenProfiles?: () => void;
+  onOpenMetrics?: () => void;
 }
 
 export const LandscapeQuickDock: React.FC<LandscapeQuickDockProps> = ({
@@ -27,7 +29,8 @@ export const LandscapeQuickDock: React.FC<LandscapeQuickDockProps> = ({
   onOpenFamilyStudio,
   onOpenTour,
   onOpenDeployment,
-  onOpenProfiles
+  onOpenProfiles,
+  onOpenMetrics
 }) => {
 
   const dockItems: {
@@ -122,6 +125,17 @@ export const LandscapeQuickDock: React.FC<LandscapeQuickDockProps> = ({
           >
             <span className="text-base leading-none">👤</span>
             <span className="text-[9px] font-black text-[#7C4728]">Learners</span>
+          </button>
+        )}
+
+        {onOpenMetrics && (
+          <button
+            onClick={onOpenMetrics}
+            className="w-full py-2 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-950 flex flex-col items-center justify-center gap-0.5 transition-all shadow-2xs"
+            title="Audience Analytics & Prospective Sponsor Pitch Deck"
+          >
+            <BarChart3 className="w-4 h-4 text-emerald-700" />
+            <span className="text-[9px] font-black">Stats</span>
           </button>
         )}
 

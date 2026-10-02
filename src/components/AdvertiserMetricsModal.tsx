@@ -16,7 +16,13 @@ import {
   Layers,
   Sparkles
 } from 'lucide-react';
-import { analyticsService, EngagementLedger } from '../services/analyticsService';
+import {
+  analyticsService,
+  EngagementLedger,
+  AdMetric,
+  PillarMetric,
+  LanguageMetric
+} from '../services/analyticsService';
 
 interface AdvertiserMetricsModalProps {
   isOpen: boolean;
@@ -57,12 +63,14 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
   };
 
   const handleCopySummary = () => {
+    const adList = Object.values(data.adMetrics) as AdMetric[];
+    const totalImpressions = adList.reduce((acc, m) => acc + (m.impressions || 0), 0);
     const summaryText = `AfroBox Audience Engagement Metrics:
 • Total Engagement: ${totalMinutes} minutes across ${data.totalSessions} sessions
 • Stories Completed: ${data.storiesCompletedCount} (${completionRate}% completion rate)
 • Narration Listened: ${Math.round(data.totalAudioSecondsListened / 60)} minutes
 • Languages Supported: ${Object.keys(data.languageMetrics).length} cultural languages recorded
-• Ad Performance: ${Object.values(data.adMetrics).reduce((acc, m) => acc + m.impressions, 0)} impressions delivered`;
+• Ad Performance: ${totalImpressions} impressions delivered`;
 
     navigator.clipboard.writeText(summaryText);
     setCopied(true);
@@ -158,10 +166,10 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
                 <DollarSign className="w-4 h-4 text-emerald-600" />
               </div>
               <div className="text-2xl font-black text-[#23211E] font-['Urbanist']">
-                {Object.values(data.adMetrics).reduce((acc, m) => acc + m.impressions, 0)}
+                {(Object.values(data.adMetrics) as AdMetric[]).reduce((acc, m) => acc + (m.impressions || 0), 0)}
               </div>
               <div className="text-[11px] text-emerald-800 font-bold">
-                {Object.values(data.adMetrics).reduce((acc, m) => acc + m.clicks, 0)} clicks tracked
+                {(Object.values(data.adMetrics) as AdMetric[]).reduce((acc, m) => acc + (m.clicks || 0), 0)} clicks tracked
               </div>
             </div>
           </div>
@@ -183,10 +191,11 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
             </div>
 
             <div className="space-y-3">
-              {Object.entries(data.pillarMetrics).map(([key, p]) => {
+              {(Object.entries(data.pillarMetrics) as [string, PillarMetric][]).map(([key, p]) => {
                 const minutes = Math.max(1, Math.round(p.totalSeconds / 60));
+                const allPillars = Object.values(data.pillarMetrics) as PillarMetric[];
                 const maxMinutes = Math.max(
-                  ...Object.values(data.pillarMetrics).map((x) => Math.round(x.totalSeconds / 60)),
+                  ...allPillars.map((x) => Math.round(x.totalSeconds / 60)),
                   15
                 );
                 const percent = Math.min(100, Math.round((minutes / maxMinutes) * 100));
@@ -231,7 +240,7 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {Object.values(data.languageMetrics).map((lang) => (
+              {(Object.values(data.languageMetrics) as LanguageMetric[]).map((lang) => (
                 <div
                   key={lang.language}
                   className="p-3 rounded-xl bg-[#FBF7EE] border border-[#E6DCBF] flex items-center justify-between"

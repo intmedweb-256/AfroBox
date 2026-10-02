@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, X, ChevronRight, ShieldCheck } from 'lucide-react';
 import { useSchoolMode } from '../context/SchoolModeContext';
+import { analyticsService } from '../services/analyticsService';
 
 interface BannerAdProps {
   slot?: 'bottom_dock' | 'side_panel';
@@ -9,6 +10,12 @@ interface BannerAdProps {
 export const BannerAd: React.FC<BannerAdProps> = ({ slot = 'bottom_dock' }) => {
   const { isSchoolMode } = useSchoolMode();
   const [isDismissed, setIsDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!isSchoolMode && !isDismissed) {
+      analyticsService.trackAdImpression(slot, 'AfroBox Heritage Library Sponsor');
+    }
+  }, [isSchoolMode, isDismissed, slot]);
 
   // In School/Education mode or if dismissed, hide banner ads to ensure an ad-free classroom environment
   if (isSchoolMode || isDismissed) {

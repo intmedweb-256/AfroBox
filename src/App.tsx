@@ -27,6 +27,8 @@ import { InterfaceTourModal } from './components/InterfaceTourModal';
 import { DeploymentModal } from './components/DeploymentModal';
 import { VoiceSettingsModal } from './components/VoiceSettingsModal';
 import { LearnerProfileModal } from './components/LearnerProfileModal';
+import { AdvertiserMetricsModal } from './components/AdvertiserMetricsModal';
+import { analyticsService } from './services/analyticsService';
 import {
   Compass,
   BookOpen,
@@ -48,6 +50,7 @@ export default function App() {
   const [isDeploymentOpen, setIsDeploymentOpen] = useState<boolean>(false);
   const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState<boolean>(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+  const [isMetricsOpen, setIsMetricsOpen] = useState<boolean>(false);
 
   // Landscape companion side panel state
   const [isSidePanelOpen, setIsSidePanelOpen] = useState<boolean>(() => {
@@ -127,6 +130,7 @@ export default function App() {
 
   const handleNavigatePillar = (pillar: PillarId | 'HOME' | 'LAUNCHER', contextId?: string) => {
     audioEngine.stopSpeaking();
+    analyticsService.trackPillarVisit(pillar);
     if (pillar !== 'STORYLANDS') {
       setSelectedStory(null);
     }
@@ -197,6 +201,7 @@ export default function App() {
           onOpenDeployment={() => setIsDeploymentOpen(true)}
           onOpenVoiceSettings={() => setIsVoiceSettingsOpen(true)}
           onOpenProfiles={() => setIsProfileModalOpen(true)}
+          onOpenMetrics={() => setIsMetricsOpen(true)}
         />
 
         {/* Master Landscape Stage Flex: Left Dock | Center Canvas | Right Companion Panel */}
@@ -209,6 +214,7 @@ export default function App() {
             onOpenTour={() => setIsTourOpen(true)}
             onOpenDeployment={() => setIsDeploymentOpen(true)}
             onOpenProfiles={() => setIsProfileModalOpen(true)}
+            onOpenMetrics={() => setIsMetricsOpen(true)}
           />
 
           {/* Center Stage Viewport (Contained Zero-Scroll Canvas) */}
@@ -480,6 +486,12 @@ export default function App() {
             setAgeTier(p.ageTier);
             setTotalDiscoveriesCount(afroboxStorage.getMyBoxState().discoveries?.length || 0);
           }}
+        />
+
+        {/* Audience Engagement & Advertiser Metrics Modal */}
+        <AdvertiserMetricsModal
+          isOpen={isMetricsOpen}
+          onClose={() => setIsMetricsOpen(false)}
         />
       </div>
     </SchoolModeProvider>
