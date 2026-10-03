@@ -14,7 +14,11 @@ import {
   CheckCircle2,
   DollarSign,
   Layers,
-  Sparkles
+  Sparkles,
+  Settings,
+  ExternalLink,
+  Radio,
+  AlertCircle
 } from 'lucide-react';
 import {
   analyticsService,
@@ -35,12 +39,30 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
 }) => {
   const [data, setData] = useState<EngagementLedger>(() => analyticsService.getLedger());
   const [copied, setCopied] = useState<boolean>(false);
+  const [measurementId, setMeasurementId] = useState<string>(() => analyticsService.getMeasurementId());
+  const [customIdInput, setCustomIdInput] = useState<string>('');
+  const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const isReal = analyticsService.isRealTrackingId();
 
   useEffect(() => {
     if (isOpen) {
       setData(analyticsService.getLedger());
+      setMeasurementId(analyticsService.getMeasurementId());
     }
   }, [isOpen]);
+
+  const handleSaveMeasurementId = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customIdInput.trim()) return;
+    const res = analyticsService.setMeasurementId(customIdInput);
+    setStatusMessage(res.message);
+    if (res.success) {
+      setMeasurementId(analyticsService.getMeasurementId());
+      setCustomIdInput('');
+      setTimeout(() => setStatusMessage(''), 4000);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -118,6 +140,83 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+          {/* Google Analytics 4 Property Status Banner */}
+          <div className="bg-white rounded-2xl p-4 border border-[#E6DCBF] shadow-2xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${isReal ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'}`} />
+                <span className="text-xs font-black uppercase tracking-wider text-[#23211E]">
+                  Google Analytics 4 Property:
+                </span>
+                <code className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-[#FBF7EE] border border-[#E6DCBF] text-[#C85A32]">
+                  {measurementId}
+                </code>
+                {isReal ? (
+                  <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                    Live Verified
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-black uppercase text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                    Baseline ID (Ready for Your Property)
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsConfigOpen(!isConfigOpen)}
+                className="text-xs font-black text-[#C85A32] hover:text-[#b04a25] flex items-center gap-1 hover:underline cursor-pointer"
+              >
+                <Settings className="w-3.5 h-3.5" />
+                <span>{isConfigOpen ? 'Hide Setup' : 'Connect Your GA4 ID'}</span>
+              </button>
+            </div>
+
+            <p className="text-xs text-[#7C4728] leading-relaxed">
+              {isReal ? (
+                <>All pillar visits, reading dwell times, voice recordings, and ad clicks are actively streaming to your personal Google Analytics 4 dashboard under <strong>{measurementId}</strong>.</>
+              ) : (
+                <>All in-app metrics and <code>dataLayer</code> events are actively tracking right now. However, <strong>{measurementId}</strong> is a placeholder ID. To stream this data into your own Google Analytics dashboard, connect your GA4 Measurement ID below.</>
+              )}
+            </p>
+
+            {/* Expandable GA4 ID Configuration Drawer */}
+            {isConfigOpen && (
+              <form onSubmit={handleSaveMeasurementId} className="pt-3 border-t border-[#E6DCBF] space-y-2.5 animate-in fade-in">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={customIdInput}
+                    onChange={(e) => setCustomIdInput(e.target.value)}
+                    placeholder="Enter your GA4 Measurement ID (e.g. G-ABC123XYZ)"
+                    className="flex-1 px-3 py-2 rounded-xl border border-[#E6DCBF] bg-[#FBF7EE] text-xs font-mono font-bold text-[#23211E] focus:outline-hidden focus:ring-2 focus:ring-[#C85A32]"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-[#1D3E2F] hover:bg-[#152e23] text-white text-xs font-black transition-all cursor-pointer shadow-2xs"
+                  >
+                    Save & Activate GA4
+                  </button>
+                </div>
+
+                {statusMessage && (
+                  <div className="text-xs font-bold text-emerald-800 bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                    {statusMessage}
+                  </div>
+                )}
+
+                <div className="text-[11px] text-[#7C4728] bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/80 space-y-1">
+                  <div className="font-extrabold text-[#23211E]">How to find your Google Analytics 4 Measurement ID:</div>
+                  <ol className="list-decimal list-inside space-y-0.5">
+                    <li>Go to <a href="https://analytics.google.com" target="_blank" rel="noreferrer" className="underline font-bold text-[#C85A32]">analytics.google.com</a> and sign in with your Google account.</li>
+                    <li>Click <strong>Admin</strong> (gear icon bottom left) &rarr; <strong>Data Streams</strong> &rarr; select or create a <strong>Web</strong> stream.</li>
+                    <li>Copy your <strong>Measurement ID</strong> (formatted like <code>G-XXXXXXXXXX</code>) and paste it above.</li>
+                  </ol>
+                </div>
+              </form>
+            )}
+          </div>
+
           {/* Key Executive Stat Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="bg-white rounded-2xl p-4 border border-[#E6DCBF] shadow-2xs space-y-1">

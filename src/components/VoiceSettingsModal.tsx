@@ -279,23 +279,38 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
             <div className="space-y-4 p-4 bg-white rounded-2xl border border-[#E6DCBF] animate-in fade-in">
               <div>
                 <label className="block text-xs font-black uppercase text-[#23211E] tracking-wider mb-1">
-                  Device Synthesizer Voices ({voices.length} detected)
+                  Device Synthesizer Voices ({voices.length} detected on your computer)
                 </label>
+                <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs text-[#7C4728] mb-2 leading-relaxed">
+                  💡 <strong>Tip for Desktop Chrome/Windows:</strong> Basic desktop voices (like <em>Microsoft David</em>) sound mechanical. For smooth, human-sounding offline speech, choose a <strong>✨ Google</strong> or <strong>✨ Natural/Neural</strong> voice below, or switch to <strong>Griot Studio HD Voices</strong> above.
+                </div>
                 <select
                   value={selectedVoiceURI}
                   onChange={(e) => setSelectedVoiceURI(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#E6DCBF] bg-[#FBF7EE] text-xs font-bold text-[#23211E] focus:outline-hidden focus:ring-2 focus:ring-[#C85A32]"
                 >
-                  <option value="">Default Recommended Voice</option>
-                  {voices.map((v) => (
-                    <option key={v.voiceURI} value={v.voiceURI}>
-                      {v.name} ({v.lang}) {v.localService ? '• Local' : '• Online'}
-                    </option>
-                  ))}
+                  <option value="">Auto-Selected Best Natural Voice (Optimized)</option>
+                  {voices.map((v) => {
+                    const n = v.name.toLowerCase();
+                    const isNatural =
+                      !n.includes('desktop') &&
+                      !n.includes('david') &&
+                      !n.includes('zira') &&
+                      !n.includes('mark') &&
+                      !n.includes('espeak') &&
+                      (n.includes('google') ||
+                        n.includes('natural') ||
+                        n.includes('neural') ||
+                        n.includes('online') ||
+                        n.includes('enhanced') ||
+                        n.includes('premium'));
+                    return (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {isNatural ? '✨ ' : ''}{v.name} ({v.lang}) {isNatural ? '• Natural' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
-                <p className="text-[11px] text-[#7C4728] mt-1">
-                  Note: Operating system synthesizers vary by device (Chromebook, Mac, Android, Windows).
-                </p>
               </div>
 
               {/* Pitch & Rate Controls */}

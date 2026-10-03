@@ -231,16 +231,16 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
           </button>
         )}
 
-        {/* Beta Testing & Roadmap Suite */}
+        {/* Community Roadmap & Vision */}
         {onOpenDeployment && (
           <button
             id="hud-deployment-btn"
             onClick={onOpenDeployment}
             className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-black shadow-2xs transition-colors"
-            title="AfroBox Web Beta Testing & Roadmap"
+            title="AfroBox Community Vision & Roadmap"
           >
-            <Rocket className="w-3.5 h-3.5 text-amber-700" />
-            <span className="hidden xl:inline">Beta Version</span>
+            <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+            <span className="hidden xl:inline">Roadmap</span>
           </button>
         )}
 

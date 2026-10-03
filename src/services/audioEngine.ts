@@ -89,7 +89,7 @@ const DEFAULT_VOICE_PREFS: VoicePreferences = {
   aiVoiceName: 'Kore'
 };
 
-class AudioEngine {
+export class AudioEngine {
   private currentUtterance: SpeechSynthesisUtterance | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
@@ -107,6 +107,92 @@ class AudioEngine {
         this.cachedVoices = window.speechSynthesis.getVoices();
       };
     }
+  }
+
+  public static getBestNaturalVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+    if (!voices || voices.length === 0) return null;
+
+    // 1. Regional African voices (Nigeria, Kenya, South Africa, Ghana, Swahili, Yoruba, Zulu)
+    const africanVoice = voices.find((v) => {
+      const l = v.lang.toLowerCase();
+      const n = v.name.toLowerCase();
+      return (
+        l === 'en-ng' ||
+        l === 'en-za' ||
+        l === 'en-ke' ||
+        l === 'en-tz' ||
+        l === 'en-gh' ||
+        l === 'sw' ||
+        l.startsWith('sw-') ||
+        l.startsWith('yo') ||
+        l.startsWith('ha') ||
+        l.startsWith('ig') ||
+        l.startsWith('zu') ||
+        l.startsWith('xh') ||
+        n.includes('nigeria') ||
+        n.includes('south africa') ||
+        n.includes('kenya') ||
+        n.includes('swahili')
+      );
+    });
+    if (africanVoice) return africanVoice;
+
+    // 2. High-quality natural voices in Chrome / Edge / macOS:
+    // In Chrome on desktop, Google voices ("Google UK English Female", "Google US English") are far more natural
+    const googleNatural = voices.find((v) => {
+      const n = v.name.toLowerCase();
+      return (
+        n.includes('google uk english female') ||
+        n.includes('google us english') ||
+        n.includes('google uk english male')
+      );
+    });
+    if (googleNatural) return googleNatural;
+
+    // 3. Online Natural/Neural voices (Edge/Windows 11)
+    const onlineNeural = voices.find((v) => {
+      const n = v.name.toLowerCase();
+      const isRobotic =
+        n.includes('desktop') ||
+        n.includes('david') ||
+        n.includes('zira') ||
+        n.includes('mark') ||
+        n.includes('espeak') ||
+        n.includes('alex') ||
+        n.includes('fred');
+      return (
+        !isRobotic &&
+        (n.includes('natural') ||
+          n.includes('neural') ||
+          n.includes('online') ||
+          n.includes('enhanced') ||
+          n.includes('premium'))
+      );
+    });
+    if (onlineNeural) return onlineNeural;
+
+    // 4. Any other Google voice
+    const anyGoogle = voices.find(
+      (v) => v.name.toLowerCase().includes('google') && v.lang.startsWith('en')
+    );
+    if (anyGoogle) return anyGoogle;
+
+    // 5. Any English voice that is NOT an obsolete robotic SAPI5 desktop synth
+    const nonRobotic = voices.find((v) => {
+      const n = v.name.toLowerCase();
+      const isRobotic =
+        n.includes('desktop') ||
+        n.includes('david') ||
+        n.includes('zira') ||
+        n.includes('mark') ||
+        n.includes('espeak') ||
+        n.includes('alex') ||
+        n.includes('fred');
+      return v.lang.startsWith('en') && !isRobotic;
+    });
+    if (nonRobotic) return nonRobotic;
+
+    return voices.find((v) => v.lang.startsWith('en')) || voices[0] || null;
   }
 
   public getAvailableVoices(): SpeechSynthesisVoice[] {
@@ -274,45 +360,11 @@ class AudioEngine {
 
     // 2. If not selected, prioritize regional African or high-quality natural voices
     if (!selectedVoice) {
-      const africanVoice = voices.find((v) => {
-        const l = v.lang.toLowerCase();
-        const n = v.name.toLowerCase();
-        return (
-          l === 'en-ng' ||
-          l === 'en-za' ||
-          l === 'en-ke' ||
-          l === 'en-tz' ||
-          l === 'en-gh' ||
-          l === 'sw' ||
-          l.startsWith('sw-') ||
-          l.startsWith('yo') ||
-          l.startsWith('ha') ||
-          l.startsWith('ig') ||
-          l.startsWith('zu') ||
-          l.startsWith('xh') ||
-          n.includes('nigeria') ||
-          n.includes('south africa') ||
-          n.includes('kenya') ||
-          n.includes('swahili')
-        );
-      });
-
-      const naturalFallback = voices.find(
-        (v) =>
-          v.lang.startsWith('en') &&
-          (v.name.includes('Natural') ||
-            v.name.includes('Neural') ||
-            v.name.includes('Google') ||
-            v.name.includes('Siri') ||
-            v.name.includes('Samantha') ||
-            v.name.includes('English'))
-      );
-
-      selectedVoice = africanVoice || naturalFallback || voices[0] || null;
+      selectedVoice = AudioEngine.getBestNaturalVoice(voices);
     }
 
     const computedRate = rateOverride !== undefined ? rateOverride : (prefs.rate || 0.90);
-    const computedPitch = prefs.pitch || 0.96;
+    const computedPitch = prefs.pitch || 0.98;
 
     const playNext = () => {
       if (currentIndex >= paragraphs.length) {
@@ -398,13 +450,14 @@ class AudioEngine {
     const voices = this.getAvailableVoices();
     const targetVoiceURI = voiceURI !== undefined ? voiceURI : prefs.voiceURI;
     const targetVoice = voices.find((v) => v.voiceURI === targetVoiceURI) || null;
+    const chosenVoice = targetVoice || AudioEngine.getBestNaturalVoice(voices);
 
     const utterance = new SpeechSynthesisUtterance(sampleText);
-    utterance.rate = rate !== undefined ? rate : prefs.rate;
-    utterance.pitch = pitch !== undefined ? pitch : prefs.pitch;
+    utterance.rate = rate !== undefined ? rate : (prefs.rate || 0.90);
+    utterance.pitch = pitch !== undefined ? pitch : (prefs.pitch || 0.98);
 
-    if (targetVoice) {
-      utterance.voice = targetVoice;
+    if (chosenVoice) {
+      utterance.voice = chosenVoice;
     }
 
     utterance.onend = () => onEnd?.();
@@ -475,41 +528,75 @@ class AudioEngine {
     return this.activeAudioElement !== null && !this.activeAudioElement.paused;
   }
 
-  public speakText(text: string, onEnd?: () => void): void {
-    if (!('speechSynthesis' in window)) return;
+  public async speakText(text: string, onEnd?: () => void): Promise<void> {
+    const trimmed = text?.trim();
+    if (!trimmed) return;
     this.stopSpeaking();
-    const utterance = new SpeechSynthesisUtterance(text);
 
-    const voices = window.speechSynthesis.getVoices();
-    const africanVoice = voices.find((v) => {
-      const l = v.lang.toLowerCase();
-      const n = v.name.toLowerCase();
-      return (
-        l === 'en-ng' ||
-        l === 'en-za' ||
-        l === 'en-ke' ||
-        l === 'en-tz' ||
-        l === 'en-gh' ||
-        l === 'sw' ||
-        l.startsWith('sw-') ||
-        n.includes('nigeria') ||
-        n.includes('south africa') ||
-        n.includes('kenya')
-      );
-    });
+    const prefs = this.getVoicePreferences();
+    const useAiGriot = prefs.narratorEngine !== 'BROWSER_SPEECH';
 
-    if (africanVoice) {
-      utterance.voice = africanVoice;
-      utterance.rate = 0.94;
-      utterance.pitch = 1.02;
-    } else {
-      utterance.rate = 0.92;
-      utterance.pitch = 1.04;
+    if (useAiGriot) {
+      const persona =
+        GRIOT_VOICE_PERSONAS.find((p) => p.id === (prefs.aiVoiceName || 'Kore')) ||
+        GRIOT_VOICE_PERSONAS[0];
+      const cacheKey = `word:${persona.id}:${trimmed}`;
+      let audioUrl = this.ttsAudioCache.get(cacheKey);
+
+      if (!audioUrl) {
+        try {
+          const res = await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: trimmed,
+              voiceName: persona.id,
+              style: 'Warm, natural, clear African educator pronouncing vocabulary with authentic cadence'
+            })
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data.audioUrl) {
+              audioUrl = data.audioUrl;
+              this.ttsAudioCache.set(cacheKey, audioUrl!);
+            }
+          }
+        } catch {
+          // Graceful fallback to browser speech below
+        }
+      }
+
+      if (audioUrl) {
+        this.playAudioUrl(audioUrl, onEnd, () => {
+          this.speakTextBrowserFallback(trimmed, onEnd);
+        });
+        return;
+      }
     }
 
-    utterance.onend = () => {
+    this.speakTextBrowserFallback(trimmed, onEnd);
+  }
+
+  private speakTextBrowserFallback(text: string, onEnd?: () => void): void {
+    if (!('speechSynthesis' in window)) {
       onEnd?.();
-    };
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    const voices = this.getAvailableVoices();
+    const naturalVoice = AudioEngine.getBestNaturalVoice(voices);
+
+    if (naturalVoice) {
+      utterance.voice = naturalVoice;
+    }
+    utterance.rate = 0.90;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => onEnd?.();
+    utterance.onerror = () => onEnd?.();
+
     this.currentUtterance = utterance;
     window.speechSynthesis.speak(utterance);
   }

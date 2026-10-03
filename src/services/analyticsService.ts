@@ -46,7 +46,8 @@ export interface EngagementLedger {
 }
 
 const ANALYTICS_LEDGER_KEY = 'afrobox_advertiser_metrics_ledger_v1';
-const GA_MEASUREMENT_ID = (import.meta as any).env?.VITE_GA_MEASUREMENT_ID || 'G-AFROBOX256';
+const GA_CUSTOM_KEY = 'afrobox_ga_custom_measurement_id';
+const DEFAULT_PLACEHOLDER_ID = 'G-AFROBOX256';
 
 const DEFAULT_LEDGER: EngagementLedger = {
   firstTrackedAt: new Date().toISOString(),
@@ -110,8 +111,77 @@ class AnalyticsService {
     } catch {}
   }
 
+  public getMeasurementId(): string {
+    try {
+      const stored = localStorage.getItem(GA_CUSTOM_KEY);
+      if (stored && stored.trim().startsWith('G-')) {
+        return stored.trim();
+      }
+    } catch {}
+    const envId = (import.meta as any).env?.VITE_GA_MEASUREMENT_ID;
+    if (envId && envId.trim().startsWith('G-')) {
+      return envId.trim();
+    }
+    return DEFAULT_PLACEHOLDER_ID;
+  }
+
+  public isRealTrackingId(): boolean {
+    const id = this.getMeasurementId();
+    return id.startsWith('G-') && id !== DEFAULT_PLACEHOLDER_ID;
+  }
+
+  public setMeasurementId(newId: string): { success: boolean; message: string } {
+    const cleanId = newId.trim().toUpperCase();
+    if (!cleanId.startsWith('G-') || cleanId.length < 5) {
+      return { success: false, message: 'Invalid ID. GA4 Measurement IDs must start with "G-" (e.g. G-ABC123XYZ).' };
+    }
+
+    try {
+      localStorage.setItem(GA_CUSTOM_KEY, cleanId);
+    } catch {}
+
+    // Dynamically inject or update gtag script and config
+    if (typeof window !== 'undefined') {
+      const win = window as any;
+      win.dataLayer = win.dataLayer || [];
+      if (!win.gtag) {
+        function gtag(...args: any[]) {
+          win.dataLayer.push(arguments);
+        }
+        win.gtag = gtag;
+      }
+
+      // Check if script exists, update or append
+      const existingScript = document.querySelector(`script[src*="googletagmanager.com/gtag/js"]`);
+      if (existingScript) {
+        existingScript.setAttribute('src', `https://www.googletagmanager.com/gtag/js?id=${cleanId}`);
+      } else {
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = `https://www.googletagmanager.com/gtag/js?id=${cleanId}`;
+        document.head.appendChild(s);
+      }
+
+      try {
+        win.gtag('js', new Date());
+        win.gtag('config', cleanId, {
+          app_name: 'AfroBox Web',
+          send_page_view: true
+        });
+        // Send verification ping
+        win.gtag('event', 'ga_measurement_id_configured', {
+          configured_at: new Date().toISOString()
+        });
+      } catch {}
+    }
+
+    return { success: true, message: `Successfully configured Google Analytics ID: ${cleanId}` };
+  }
+
   private initGA(): void {
     if (typeof window === 'undefined') return;
+
+    const measurementId = this.getMeasurementId();
 
     // Check if gtag is loaded on window
     const win = window as any;
@@ -125,7 +195,7 @@ class AnalyticsService {
 
     try {
       win.gtag('js', new Date());
-      win.gtag('config', GA_MEASUREMENT_ID, {
+      win.gtag('config', measurementId, {
         app_name: 'AfroBox Web',
         app_version: '1.0-beta',
         send_page_view: false
@@ -141,6 +211,7 @@ class AnalyticsService {
       if (typeof win.gtag === 'function') {
         win.gtag('event', eventName, {
           ...params,
+          measurement_id: this.getMeasurementId(),
           timestamp: new Date().toISOString()
         });
       }

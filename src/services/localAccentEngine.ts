@@ -4,6 +4,8 @@
  * and authentic African phonetic mappings for children.
  */
 
+import { AudioEngine } from './audioEngine';
+
 export type AccentRegion = 'west-african' | 'east-african' | 'southern-african' | 'north-african';
 
 export interface SyllableItem {
@@ -412,9 +414,9 @@ class LocalAccentEngine {
       if (westVoice) {
         return { voice: westVoice, rate: 0.95, pitch: 1.05 };
       }
-      // Prosodic fallback: Syllable-timed West African cadence
-      const neutralVoice = voices.find((v) => v.lang.startsWith('en')) || null;
-      return { voice: neutralVoice, rate: 0.92, pitch: 1.08 };
+      // Prosodic fallback: Syllable-timed West African cadence with best natural voice
+      const neutralVoice = AudioEngine.getBestNaturalVoice(voices);
+      return { voice: neutralVoice, rate: 0.92, pitch: 1.05 };
     }
 
     if (accent === 'east-african') {
@@ -431,8 +433,8 @@ class LocalAccentEngine {
       if (eastVoice) {
         return { voice: eastVoice, rate: 0.9, pitch: 1.0 };
       }
-      // Prosodic fallback: Warm melodic penultimate stress
-      const neutralVoice = voices.find((v) => v.lang.startsWith('en')) || null;
+      // Prosodic fallback: Warm melodic penultimate stress with best natural voice
+      const neutralVoice = AudioEngine.getBestNaturalVoice(voices);
       return { voice: neutralVoice, rate: 0.88, pitch: 1.02 };
     }
 
@@ -448,8 +450,8 @@ class LocalAccentEngine {
       if (southVoice) {
         return { voice: southVoice, rate: 0.93, pitch: 0.98 };
       }
-      const neutralVoice = voices.find((v) => v.lang.startsWith('en')) || null;
-      return { voice: neutralVoice, rate: 0.9, pitch: 0.97 };
+      const neutralVoice = AudioEngine.getBestNaturalVoice(voices);
+      return { voice: neutralVoice, rate: 0.9, pitch: 0.98 };
     }
 
     if (accent === 'north-african') {
@@ -464,11 +466,12 @@ class LocalAccentEngine {
       if (northVoice) {
         return { voice: northVoice, rate: 0.9, pitch: 1.0 };
       }
-      const neutralVoice = voices.find((v) => v.lang.startsWith('en')) || null;
+      const neutralVoice = AudioEngine.getBestNaturalVoice(voices);
       return { voice: neutralVoice, rate: 0.88, pitch: 1.02 };
     }
 
-    return { voice: null, rate: 0.92, pitch: 1.0 };
+    const fallbackVoice = AudioEngine.getBestNaturalVoice(voices);
+    return { voice: fallbackVoice, rate: 0.90, pitch: 1.0 };
   }
 
   public stopSpeaking(): void {

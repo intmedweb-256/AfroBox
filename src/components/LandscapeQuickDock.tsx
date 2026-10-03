@@ -9,7 +9,8 @@ import {
   Users,
   HelpCircle,
   Rocket,
-  BarChart3
+  BarChart3,
+  Sparkles
 } from 'lucide-react';
 import { PillarId } from '../types/afrobox';
 
@@ -143,10 +144,10 @@ export const LandscapeQuickDock: React.FC<LandscapeQuickDockProps> = ({
           <button
             onClick={onOpenDeployment}
             className="w-full py-2 rounded-2xl bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-950 flex flex-col items-center justify-center gap-0.5 transition-all shadow-2xs"
-            title="AfroBox Web Beta Testing & Roadmap"
+            title="AfroBox Community Vision & Roadmap"
           >
-            <Rocket className="w-4 h-4 text-amber-700" />
-            <span className="text-[9px] font-black">Beta</span>
+            <Sparkles className="w-4 h-4 text-amber-700" />
+            <span className="text-[9px] font-black">Roadmap</span>
           </button>
         )}
 
