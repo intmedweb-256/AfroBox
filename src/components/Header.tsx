@@ -35,9 +35,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="font-extrabold text-xl tracking-tight text-amber-950 font-['Urbanist']">
                     Afro<span className="text-amber-600">Box</span>
                   </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-200/70 text-amber-800">
-                    BETA
-                  </span>
                 </div>
                 <div className="text-xs font-semibold text-amber-800/80 flex items-center gap-1">
                   <span>World 1: Storylands</span>
@@ -70,8 +67,8 @@ export const Header: React.FC<HeaderProps> = ({
                         <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                         <span className="font-bold">Storylands</span>
                       </div>
-                      <span className="text-[10px] bg-amber-200/80 text-amber-800 font-bold px-1.5 py-0.5 rounded">
-                        Active Beta
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded border border-emerald-200">
+                        Active World
                       </span>
                     </div>
 

@@ -20,6 +20,7 @@ import {
 import { MapPinItem, MAP_PINS } from '../../data/mapData';
 import { PillarId } from '../../types/afrobox';
 import { afroboxStorage } from '../../services/afroboxStorage';
+import { analyticsService } from '../../services/analyticsService';
 import { audioEngine } from '../../services/audioEngine';
 import { InstrumentSoundPlayer } from '../audio/InstrumentSoundPlayer';
 import { LocalAccentPronunciationCard } from '../audio/LocalAccentPronunciationCard';
@@ -75,6 +76,7 @@ export const DiscoveryCardDrawer: React.FC<DiscoveryCardDrawerProps> = ({
       ageTier: '6-8'
     });
     audioEngine.playSoundEffect('collect');
+    analyticsService.trackDiscoveryUnlocked(pin.id, pin.name, pin.type);
     setJustCollected(true);
     setTimeout(() => setJustCollected(false), 3000);
   };

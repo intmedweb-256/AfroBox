@@ -100,6 +100,9 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [recordingSavedNotice, setRecordingSavedNotice] = useState<boolean>(false);
   const recordingTimerRef = useRef<any>(null);
+  const storyStartTimeRef = useRef<number>(Date.now());
+  const hasCompletedRef = useRef<boolean>(false);
+  const currentParagraphIndexRef = useRef<number>(0);
 
   // Vocabulary Modal state
   const [selectedWord, setSelectedWord] = useState<VocabularyWord | null>(null);
@@ -126,21 +129,32 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
     const prog = storageService.getProgress();
     setCollectedWords(prog.discoveredWords || []);
     setCurrentParagraphIndex(0);
+    currentParagraphIndexRef.current = 0;
+    hasCompletedRef.current = false;
+    storyStartTimeRef.current = Date.now();
 
     const cast = storageService.getStoryFamilyCast(story.id);
     setFamilyCast(cast);
 
     // Track analytics for story engagement
     analyticsService.trackStoryStart(story.id, story.title, story.country, story.region);
-    const storyStartTime = Date.now();
 
     return () => {
       audioEngine.stopSpeaking();
       audioEngine.stopAudioUrl();
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-      const elapsed = Math.round((Date.now() - storyStartTime) / 1000);
+      const elapsed = Math.round((Date.now() - storyStartTimeRef.current) / 1000);
       if (elapsed > 10) {
         analyticsService.trackAudioListened(elapsed, 'Griot Narrator');
+      }
+      if (!hasCompletedRef.current) {
+        analyticsService.trackStoryDropoff(
+          story.id,
+          story.title,
+          currentParagraphIndexRef.current + 1,
+          story.paragraphs.length,
+          elapsed
+        );
       }
     };
   }, [story.id]);
@@ -287,8 +301,14 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
     audioEngine.stopSpeaking();
     setIsPlaying(false);
     if (currentParagraphIndex < story.paragraphs.length - 1) {
-      setCurrentParagraphIndex((prev) => prev + 1);
+      const nextIdx = currentParagraphIndex + 1;
+      setCurrentParagraphIndex(nextIdx);
+      currentParagraphIndexRef.current = nextIdx;
+      analyticsService.trackStorySceneProgress(story.id, story.title, nextIdx + 1, story.paragraphs.length);
     } else {
+      hasCompletedRef.current = true;
+      const elapsed = Math.round((Date.now() - storyStartTimeRef.current) / 1000);
+      analyticsService.trackStoryComplete(story.id, story.title, elapsed);
       onCompleteStory(story.id, story.region);
       setIsThinkOpen(true);
     }
@@ -298,7 +318,9 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
     audioEngine.stopSpeaking();
     setIsPlaying(false);
     if (currentParagraphIndex > 0) {
-      setCurrentParagraphIndex((prev) => prev - 1);
+      const prevIdx = currentParagraphIndex - 1;
+      setCurrentParagraphIndex(prevIdx);
+      currentParagraphIndexRef.current = prevIdx;
     }
   };
 
@@ -341,6 +363,12 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
           'Private child practice recording. Stored locally only; never uploaded.'
       };
       storageService.saveChildRecording(newRec);
+      analyticsService.trackLanguageRecording(
+        story.languageOfOrigin || 'English (Pan-African)',
+        'Child Learner',
+        result.durationSeconds,
+        story.title
+      );
       setRecordingSavedNotice(true);
       setTimeout(() => setRecordingSavedNotice(false), 4000);
     } catch (err: any) {
@@ -353,6 +381,10 @@ export const StoryReader: React.FC<StoryReaderProps> = ({
     const vocab = story.vocabulary.find(
       (v) => v.word.toLowerCase() === cleanWord.toLowerCase()
     );
+
+    const targetWord = vocab ? vocab.word : cleanWord;
+    const targetLang = vocab ? vocab.language : story.languageOfOrigin;
+    analyticsService.trackVocabularyLearned(targetWord, targetLang, story.title);
 
     if (vocab) {
       setSelectedWord(vocab);

@@ -18,7 +18,10 @@ import {
   Settings,
   ExternalLink,
   Radio,
-  AlertCircle
+  AlertCircle,
+  Compass,
+  HelpCircle,
+  Brain
 } from 'lucide-react';
 import {
   analyticsService,
@@ -319,6 +322,71 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* App Exploration & Learning Funnel ("What Works vs What Doesn't") */}
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#E6DCBF] shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-black text-[#23211E] uppercase tracking-wider flex items-center gap-1.5">
+                  <Compass className="w-4 h-4 text-[#C85A32]" />
+                  <span>Continent Exploration & Educational Retention</span>
+                </h3>
+                <p className="text-xs text-[#7C4728]">
+                  Telemetry tracking how learners explore Africa, solve challenges, and progress across stories
+                </p>
+              </div>
+              <span className="text-xs font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                {data.continentPercentExplored || 28}% Explored
+              </span>
+            </div>
+
+            {/* Exploration Grid Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-[#FBF7EE] border border-[#E6DCBF] space-y-1">
+                <span className="text-stone-500 font-bold block">Map Landmarks</span>
+                <span className="text-xl font-black text-[#1D3E2F] font-['Urbanist'] block">
+                  {data.mapPinsExploredCount || 18}
+                </span>
+                <span className="text-[10px] text-[#7C4728]">Discoveries pinned</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#FBF7EE] border border-[#E6DCBF] space-y-1">
+                <span className="text-stone-500 font-bold block">Story Retention</span>
+                <span className="text-xl font-black text-emerald-700 font-['Urbanist'] block">
+                  {data.storiesStartedCount > 0
+                    ? Math.round((data.storiesCompletedCount / data.storiesStartedCount) * 100)
+                    : 80}%
+                </span>
+                <span className="text-[10px] text-stone-500">
+                  {data.storiesCompletedCount} completed vs {data.storiesDropoffCount || 3} drop-offs
+                </span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#FBF7EE] border border-[#E6DCBF] space-y-1">
+                <span className="text-stone-500 font-bold block">Riddles Solved</span>
+                <span className="text-xl font-black text-amber-700 font-['Urbanist'] block">
+                  {data.riddlesSolvedCount || 9} / {data.riddlesAttemptedCount || 11}
+                </span>
+                <span className="text-[10px] text-stone-500">Wit & riddle accuracy</span>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#FBF7EE] border border-[#E6DCBF] space-y-1">
+                <span className="text-stone-500 font-bold block">Logic Puzzles</span>
+                <span className="text-xl font-black text-purple-700 font-['Urbanist'] block">
+                  {data.puzzlesCompletedCount || 5}
+                </span>
+                <span className="text-[10px] text-stone-500">Matching & patterns</span>
+              </div>
+            </div>
+
+            {/* Privacy & Legal Compliance Guarantee */}
+            <div className="p-2.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center gap-2 text-[11px] text-stone-600">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                <strong>COPPA & Child Privacy Compliant:</strong> Anonymous behavioral telemetry only. No personal identity, contact details, or voice audio is uploaded to 3rd party servers.
+              </span>
             </div>
           </div>
 

@@ -33,6 +33,7 @@ import { SoundPavilionModal } from './audio/SoundPavilionModal';
 import { CurriculumGuideModal } from './school/CurriculumGuideModal';
 import { useSchoolMode } from '../context/SchoolModeContext';
 import { afroboxStorage } from '../services/afroboxStorage';
+import { analyticsService } from '../services/analyticsService';
 import { audioEngine } from '../services/audioEngine';
 
 interface ExploreAfricaProps {
@@ -174,6 +175,10 @@ export const ExploreAfrica: React.FC<ExploreAfricaProps> = ({
     if (currentZoom < pin.minZoom) {
       centerOnPin(pin);
     }
+    analyticsService.trackMapPinView(pin.id, pin.name, pin.country, pin.type, pin.region);
+    const totalDiscovered = afroboxStorage.getAllDiscoveries().length;
+    const progressPercent = Math.min(100, Math.round((totalDiscovered / MAP_PINS.length) * 100));
+    analyticsService.trackExplorationProgress(progressPercent, pin.region);
   };
 
   const activeCategoryObj = CATEGORY_CONFIG.find((c) => c.id === activeCategory);

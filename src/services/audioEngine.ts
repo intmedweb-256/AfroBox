@@ -110,10 +110,37 @@ export class AudioEngine {
   }
 
   public static getBestNaturalVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-    if (!voices || voices.length === 0) return null;
+    let available = voices;
+    if ((!available || available.length === 0) && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      available = window.speechSynthesis.getVoices();
+    }
+    if (!available || available.length === 0) return null;
+
+    // Helper to identify and filter out known legacy robotic SAPI5 desktop synths
+    const isRoboticSynth = (n: string) => {
+      const lower = n.toLowerCase();
+      return (
+        lower.includes('desktop') ||
+        lower.includes('espeak') ||
+        lower.includes('david') ||
+        lower.includes('mark') ||
+        lower.includes('zira') ||
+        lower.includes('george') ||
+        lower.includes('hazel') ||
+        lower.includes('heera') ||
+        lower.includes('alex') ||
+        lower.includes('fred') ||
+        lower.includes('sam') ||
+        lower.includes('zarvox') ||
+        lower.includes('trinoids') ||
+        lower.includes('whisper') ||
+        lower.includes('bad news') ||
+        lower.includes('deranged')
+      );
+    };
 
     // 1. Regional African voices (Nigeria, Kenya, South Africa, Ghana, Swahili, Yoruba, Zulu)
-    const africanVoice = voices.find((v) => {
+    const africanVoice = available.find((v) => {
       const l = v.lang.toLowerCase();
       const n = v.name.toLowerCase();
       return (
@@ -137,31 +164,24 @@ export class AudioEngine {
     });
     if (africanVoice) return africanVoice;
 
-    // 2. High-quality natural voices in Chrome / Edge / macOS:
-    // In Chrome on desktop, Google voices ("Google UK English Female", "Google US English") are far more natural
-    const googleNatural = voices.find((v) => {
-      const n = v.name.toLowerCase();
-      return (
-        n.includes('google uk english female') ||
-        n.includes('google us english') ||
-        n.includes('google uk english male')
-      );
-    });
-    if (googleNatural) return googleNatural;
+    // 2. High-quality natural voices in Chrome Desktop:
+    // In Chrome on desktop, Google voices ("Google UK English Female", "Google US English", "Google UK English Male")
+    // are dramatically more natural than OS legacy SAPI5 voices.
+    // "Google UK English Female" provides a warm, melodious storytelling cadence.
+    const googleUkFemale = available.find((v) => v.name.toLowerCase().includes('google uk english female'));
+    if (googleUkFemale) return googleUkFemale;
 
-    // 3. Online Natural/Neural voices (Edge/Windows 11)
-    const onlineNeural = voices.find((v) => {
+    const googleUkMale = available.find((v) => v.name.toLowerCase().includes('google uk english male'));
+    if (googleUkMale) return googleUkMale;
+
+    const googleUs = available.find((v) => v.name.toLowerCase().includes('google us english'));
+    if (googleUs) return googleUs;
+
+    // 3. Online Natural/Neural voices (Edge/Windows 11 Online Natural)
+    const onlineNatural = available.find((v) => {
       const n = v.name.toLowerCase();
-      const isRobotic =
-        n.includes('desktop') ||
-        n.includes('david') ||
-        n.includes('zira') ||
-        n.includes('mark') ||
-        n.includes('espeak') ||
-        n.includes('alex') ||
-        n.includes('fred');
       return (
-        !isRobotic &&
+        !isRoboticSynth(n) &&
         (n.includes('natural') ||
           n.includes('neural') ||
           n.includes('online') ||
@@ -169,30 +189,30 @@ export class AudioEngine {
           n.includes('premium'))
       );
     });
-    if (onlineNeural) return onlineNeural;
+    if (onlineNatural) return onlineNatural;
 
-    // 4. Any other Google voice
-    const anyGoogle = voices.find(
-      (v) => v.name.toLowerCase().includes('google') && v.lang.startsWith('en')
+    // 4. Any other Google voice in English
+    const anyGoogle = available.find(
+      (v) => v.name.toLowerCase().includes('google') && v.lang.toLowerCase().startsWith('en')
     );
     if (anyGoogle) return anyGoogle;
 
-    // 5. Any English voice that is NOT an obsolete robotic SAPI5 desktop synth
-    const nonRobotic = voices.find((v) => {
+    // 5. High-quality Commonwealth / British or Irish English (natural cadenced storytelling)
+    const commonwealthNatural = available.find((v) => {
+      const l = v.lang.toLowerCase();
       const n = v.name.toLowerCase();
-      const isRobotic =
-        n.includes('desktop') ||
-        n.includes('david') ||
-        n.includes('zira') ||
-        n.includes('mark') ||
-        n.includes('espeak') ||
-        n.includes('alex') ||
-        n.includes('fred');
-      return v.lang.startsWith('en') && !isRobotic;
+      return !isRoboticSynth(n) && (l === 'en-gb' || l === 'en-ie' || l === 'en-au' || l === 'en-nz' || l === 'en-za');
+    });
+    if (commonwealthNatural) return commonwealthNatural;
+
+    // 6. Any English voice that is NOT an obsolete robotic SAPI5 desktop synth
+    const nonRobotic = available.find((v) => {
+      const n = v.name.toLowerCase();
+      return v.lang.toLowerCase().startsWith('en') && !isRoboticSynth(n);
     });
     if (nonRobotic) return nonRobotic;
 
-    return voices.find((v) => v.lang.startsWith('en')) || voices[0] || null;
+    return available.find((v) => v.lang.toLowerCase().startsWith('en')) || available[0] || null;
   }
 
   public getAvailableVoices(): SpeechSynthesisVoice[] {
@@ -334,7 +354,7 @@ export class AudioEngine {
     playNextParagraph();
   }
 
-  // Device Browser Web Speech API Narration
+  // Device Browser Web Speech API Narration (Enhanced for Chrome Desktop & Mobile)
   public speakParagraphsBrowser(
     paragraphs: string[],
     startIndex: number = 0,
@@ -363,41 +383,71 @@ export class AudioEngine {
       selectedVoice = AudioEngine.getBestNaturalVoice(voices);
     }
 
-    const computedRate = rateOverride !== undefined ? rateOverride : (prefs.rate || 0.90);
-    const computedPitch = prefs.pitch || 0.98;
+    // Rate & Pitch Normalization:
+    // In desktop Chrome, changing pitch away from 1.0 engages an artificial time-domain DSP formant shifter
+    // that produces a tinny robotic vibration. Maintaining pitch at 1.0 preserves the authentic human vocal recording.
+    const computedRate = rateOverride !== undefined ? rateOverride : (prefs.rate || 0.95);
+    const isCustomPitch = prefs.presetName === 'CUSTOM' && prefs.pitch !== undefined;
+    const computedPitch = isCustomPitch ? prefs.pitch : 1.0;
 
-    const playNext = () => {
+    const playNextParagraph = () => {
       if (currentIndex >= paragraphs.length) {
         listeners.onEnd?.();
         return;
       }
 
       listeners.onParagraphChange?.(currentIndex);
+      const fullText = paragraphs[currentIndex]?.trim() || '';
 
-      const utterance = new SpeechSynthesisUtterance(paragraphs[currentIndex]);
-      utterance.rate = computedRate;
-      utterance.pitch = computedPitch;
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
+      if (!fullText) {
+        currentIndex++;
+        playNextParagraph();
+        return;
       }
 
-      utterance.onend = () => {
-        currentIndex++;
-        playNext();
-      };
+      // Break long text into natural oral storytelling sentences (avoiding monotone run-on robot cadence)
+      const rawSentences = fullText.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 0);
+      const sentences = rawSentences.length > 0 ? rawSentences : [fullText];
+      let sentenceIdx = 0;
 
-      utterance.onerror = (e) => {
-        if (e.error !== 'interrupted' && e.error !== 'canceled') {
-          listeners.onError?.(`Audio playback notice: ${e.error}`);
+      const speakSentence = () => {
+        if (sentenceIdx >= sentences.length) {
+          currentIndex++;
+          playNextParagraph();
+          return;
         }
+
+        const sentenceText = sentences[sentenceIdx];
+        const utterance = new SpeechSynthesisUtterance(sentenceText);
+        utterance.rate = computedRate;
+        utterance.pitch = computedPitch;
+
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+
+        utterance.onend = () => {
+          sentenceIdx++;
+          // Natural human storyteller breath pause (120ms) between sentences
+          setTimeout(() => {
+            speakSentence();
+          }, 120);
+        };
+
+        utterance.onerror = (e) => {
+          if (e.error !== 'interrupted' && e.error !== 'canceled') {
+            listeners.onError?.(`Audio playback notice: ${e.error}`);
+          }
+        };
+
+        this.currentUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
       };
 
-      this.currentUtterance = utterance;
-      window.speechSynthesis.speak(utterance);
+      speakSentence();
     };
 
-    playNext();
+    playNextParagraph();
   }
 
   public async testVoiceSample(
@@ -453,8 +503,9 @@ export class AudioEngine {
     const chosenVoice = targetVoice || AudioEngine.getBestNaturalVoice(voices);
 
     const utterance = new SpeechSynthesisUtterance(sampleText);
-    utterance.rate = rate !== undefined ? rate : (prefs.rate || 0.90);
-    utterance.pitch = pitch !== undefined ? pitch : (prefs.pitch || 0.98);
+    const isCustomPitch = prefs.presetName === 'CUSTOM' && pitch !== undefined;
+    utterance.rate = rate !== undefined ? rate : 0.95;
+    utterance.pitch = isCustomPitch ? pitch! : 1.0;
 
     if (chosenVoice) {
       utterance.voice = chosenVoice;

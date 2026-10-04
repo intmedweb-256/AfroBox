@@ -103,10 +103,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-[#23211E] font-['Urbanist']">
-                    Afro<span className="text-[#E25822]">Box</span> <span className="text-[#1D3E2F]">Web</span>
-                  </span>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200/80 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300">
-                    Beta
+                    Afro<span className="text-[#E25822]">Box</span>
                   </span>
                 </div>
                 <div className="text-[11px] font-semibold text-[#7C4728] hidden sm:block">
@@ -201,16 +198,16 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Right Action Tools: School Mode + Smartboard Fullscreen + Age Tier + Audio Voice Toggle */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Beta Testing & Roadmap Suite Button */}
+            {/* Community Vision & Roadmap Suite Button */}
             {onOpenDeployment && (
               <button
                 id="deployment-guide-nav-btn"
                 onClick={onOpenDeployment}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-extrabold transition-all shadow-2xs"
-                title="AfroBox Web Beta Testing & Roadmap"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 text-xs font-extrabold transition-all shadow-2xs cursor-pointer"
+                title="AfroBox Community Vision & Roadmap"
               >
-                <Rocket className="w-3.5 h-3.5 text-amber-700" />
-                <span className="hidden lg:inline">Beta Version</span>
+                <Sparkles className="w-3.5 h-3.5 text-amber-700" />
+                <span className="hidden lg:inline">Roadmap</span>
               </button>
             )}
 

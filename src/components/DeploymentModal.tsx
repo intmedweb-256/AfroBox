@@ -3,16 +3,9 @@ import {
   Compass,
   CheckCircle2,
   Clock,
-  ExternalLink,
-  Shield,
   Smartphone,
   Globe,
   Headphones,
-  FileCheck,
-  Share2,
-  AlertCircle,
-  Copy,
-  Check,
   X,
   Heart,
   Users,
@@ -259,7 +252,7 @@ export const DeploymentModal: React.FC<DeploymentModalProps> = ({ isOpen, onClos
         {/* Footer */}
         <div className="p-4 bg-[#F5EEDC] border-t border-[#E6DCBF] flex items-center justify-between">
           <span className="text-xs text-[#7C4728] font-bold">
-            AfroBox Web • Community Roadmap
+            AfroBox • Community Roadmap
           </span>
           <button
             onClick={onClose}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, MapPin, Globe, BookMarked, Languages, Info, FileText } from 'lucide-react';
+import { MapPin, Globe, Languages, FileText, Info } from 'lucide-react';
 import { Story } from '../types/story';
 
 interface CulturalProvenanceCardProps {
@@ -7,32 +7,6 @@ interface CulturalProvenanceCardProps {
 }
 
 export const CulturalProvenanceCard: React.FC<CulturalProvenanceCardProps> = ({ story }) => {
-  const getVerificationBadge = () => {
-    switch (story.verificationStatus) {
-      case 'VERIFIED':
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            Verified Provenance
-          </span>
-        );
-      case 'RESEARCH_IN_PROGRESS':
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
-            <Info className="w-3.5 h-3.5 text-blue-600" />
-            Research Draft
-          </span>
-        );
-      case 'DEMO_PLACEHOLDER':
-        return (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-            <BookMarked className="w-3.5 h-3.5 text-amber-600" />
-            Demonstration Story (Demo)
-          </span>
-        );
-    }
-  };
-
   const getStoryTypeDisplay = (type: string) => {
     switch (type) {
       case 'ANIMAL_TRICKSTER':
@@ -67,7 +41,6 @@ export const CulturalProvenanceCard: React.FC<CulturalProvenanceCardProps> = ({ 
             Where does this story come from?
           </h3>
         </div>
-        <div>{getVerificationBadge()}</div>
       </div>
 
       {/* Grid of Provenance Attributes */}

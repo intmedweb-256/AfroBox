@@ -15,6 +15,7 @@ import {
 import { AgeTier, PillarId, RiddleEntity } from '../types/afrobox';
 import { AFROBOX_RIDDLES } from '../data/riddles';
 import { afroboxStorage } from '../services/afroboxStorage';
+import { analyticsService } from '../services/analyticsService';
 
 interface RiddleChamberProps {
   onNavigatePillar: (pillar: PillarId, contextId?: string) => void;
@@ -46,8 +47,19 @@ export const RiddleChamber: React.FC<RiddleChamberProps> = ({
     setSelectedOption(idx);
     setHasAnswered(true);
 
-    if (idx === riddle.correctAnswerIndex) {
+    const isCorrect = idx === riddle.correctAnswerIndex;
+    analyticsService.trackRiddleAttempt(
+      riddle.id,
+      riddle.title,
+      isCorrect,
+      riddle.options[idx] || String(idx),
+      1,
+      revealedClues > 1
+    );
+
+    if (isCorrect) {
       afroboxStorage.recordSolvedRiddle(riddle.id);
+      analyticsService.trackRiddleSolved(riddle.id, riddle.title, 1, revealedClues > 1);
       setCelebrationMessage(`🎉 Splendid! You solved "${riddle.title}" and earned the "${riddle.rewardBadge}" sticker!`);
       onPlayVoice(`Correct! ${riddle.explanation}`);
     } else {

@@ -47,7 +47,6 @@ export const StoryDiscovery: React.FC<StoryDiscoveryProps> = ({
   const [selectedTheme, setSelectedTheme] = useState<string>('ALL');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('ALL');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('ALL');
-  const [selectedVerification, setSelectedVerification] = useState<string>('ALL');
   const [selectedCountry, setSelectedCountry] = useState<string>('ALL');
 
   // Extract unique regions, themes, languages, etc.
@@ -130,11 +129,6 @@ export const StoryDiscovery: React.FC<StoryDiscoveryProps> = ({
         return false;
       }
 
-      // Verification Status Filter
-      if (selectedVerification !== 'ALL' && story.verificationStatus !== selectedVerification) {
-        return false;
-      }
-
       return true;
     });
   }, [
@@ -146,8 +140,7 @@ export const StoryDiscovery: React.FC<StoryDiscoveryProps> = ({
     selectedAge,
     selectedTheme,
     selectedLanguage,
-    selectedDifficulty,
-    selectedVerification
+    selectedDifficulty
   ]);
 
   const resetFilters = () => {
@@ -159,7 +152,6 @@ export const StoryDiscovery: React.FC<StoryDiscoveryProps> = ({
     setSelectedTheme('ALL');
     setSelectedLanguage('ALL');
     setSelectedDifficulty('ALL');
-    setSelectedVerification('ALL');
   };
 
   const hasActiveFilters =
@@ -170,8 +162,7 @@ export const StoryDiscovery: React.FC<StoryDiscoveryProps> = ({
     selectedAge !== 'ALL' ||
     selectedTheme !== 'ALL' ||
     selectedLanguage !== 'ALL' ||
-    selectedDifficulty !== 'ALL' ||
-    selectedVerification !== 'ALL';
+    selectedDifficulty !== 'ALL';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -486,19 +477,6 @@ export const StoryDiscovery: React.FC<StoryDiscoveryProps> = ({
           <option value="CONTEMPORARY">Contemporary</option>
         </select>
 
-        {/* Verification Status (Requirement from Section 10 & 7) */}
-        <select
-          id="filter-verification"
-          value={selectedVerification}
-          onChange={(e) => setSelectedVerification(e.target.value)}
-          className="bg-amber-50 border border-amber-300 rounded-xl px-2.5 py-1.5 font-semibold text-stone-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
-        >
-          <option value="ALL">All Verification Statuses</option>
-          <option value="VERIFIED">Verified Provenance</option>
-          <option value="RESEARCH_IN_PROGRESS">Research Draft</option>
-          <option value="DEMO_PLACEHOLDER">Demo Placeholder</option>
-        </select>
-
         {/* Difficulty */}
         <select
           id="filter-difficulty"
@@ -590,26 +568,14 @@ export const StoryDiscovery: React.FC<StoryDiscoveryProps> = ({
                 {/* Card Content Body */}
                 <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between">
                   <div>
-                    {/* Cultural Tradition and Verification */}
+                    {/* Cultural Tradition */}
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <div className="text-xs font-bold text-amber-800 line-clamp-1">
                         {story.culturalTradition}
                       </div>
-
-                      {story.verificationStatus === 'VERIFIED' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
-                          <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                          Verified
-                        </span>
-                      ) : story.verificationStatus === 'DEMO_PLACEHOLDER' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 shrink-0">
-                          Demo
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 shrink-0">
-                          Research
-                        </span>
-                      )}
+                      <span className="text-[10px] font-bold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full shrink-0">
+                        {story.readingTimeMinutes} min read
+                      </span>
                     </div>
 
                     <h3 className="text-lg sm:text-xl font-bold text-amber-950 font-['Urbanist'] group-hover:text-amber-700 transition-colors leading-snug">

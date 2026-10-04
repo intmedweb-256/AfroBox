@@ -162,16 +162,10 @@ export const CulturalProvenanceInspector: React.FC<CulturalProvenanceInspectorPr
                   {challenge.sourceAuthorOrCollector}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-1 pb-1.5 border-b border-[#F0E8D0]">
+              <div className="flex items-center justify-between gap-1">
                 <span className="text-[#7C4728] font-medium">Rights Status:</span>
                 <span className="font-bold text-[#1D3E2F] px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[11px]">
                   {challenge.rightsStatus.replace('_', ' ')}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-[#7C4728] font-medium">Verification Status:</span>
-                <span className="font-bold text-[#E25822] px-2 py-0.5 rounded-md bg-orange-50 border border-orange-200 text-[11px]">
-                  {challenge.verificationStatus.replace('_', ' ')}
                 </span>
               </div>
             </div>

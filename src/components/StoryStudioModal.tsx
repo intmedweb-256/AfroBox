@@ -520,7 +520,7 @@ export const StoryStudioModal: React.FC<StoryStudioModalProps> = ({
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Content Pipeline & Verification</span>
+            <span>Cultural Story Library</span>
           </button>
 
           <button
@@ -626,7 +626,7 @@ export const StoryStudioModal: React.FC<StoryStudioModalProps> = ({
                     Current Library & Community Ingestion Queue ({allCurrentStories.length} Stories)
                   </h3>
                   <p className="text-xs text-[#7C4728]">
-                    Real-time status of all stories in the applet runtime, categorized by tradition and verification status.
+                    Real-time status of all stories in the applet runtime, categorized by tradition and geographical region.
                   </p>
                 </div>
                 <button
@@ -634,7 +634,7 @@ export const StoryStudioModal: React.FC<StoryStudioModalProps> = ({
                   className="px-3 py-1.5 rounded-xl bg-[#C85A32] text-white text-xs font-bold hover:bg-[#A84320] flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Submit Story to Pipeline</span>
+                  <span>Submit Story to Library</span>
                 </button>
               </div>
 
@@ -653,8 +653,8 @@ export const StoryStudioModal: React.FC<StoryStudioModalProps> = ({
                             🇺🇬 Uganda
                           </span>
                         )}
-                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800">
-                          {story.verificationStatus}
+                        <span className="px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                          {story.region}
                         </span>
                       </div>
                       <p className="text-[11px] text-[#7C4728] line-clamp-1">

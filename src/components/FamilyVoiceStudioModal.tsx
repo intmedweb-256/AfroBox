@@ -25,6 +25,7 @@ import {
 import { Story, FamilyVoiceProfile, FamilyRole, StoryFamilyVoiceCast, SceneVoiceRecording } from '../types/story';
 import { storageService } from '../services/storageService';
 import { audioEngine } from '../services/audioEngine';
+import { analyticsService } from '../services/analyticsService';
 
 interface FamilyVoiceStudioModalProps {
   isOpen: boolean;
@@ -48,6 +49,11 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
   const [familyCast, setFamilyCast] = useState<StoryFamilyVoiceCast | null>(() => {
     return story?.id ? storageService.getStoryFamilyCast(story.id) : null;
   });
+
+  // Language being spoken for recording
+  const [selectedLanguage, setSelectedLanguage] = useState<string>(
+    story?.languageOfOrigin || 'English (Pan-African)'
+  );
 
   // Recording State
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -89,6 +95,7 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
     if (story?.id) {
       const cast = storageService.getStoryFamilyCast(story.id);
       setFamilyCast(cast);
+      analyticsService.trackVoiceStudioOpen(story.id, currentSceneIndex);
     }
   };
 
@@ -150,6 +157,13 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
       const updatedCast = storageService.saveSceneRecording(story.id, currentSceneIndex, newRec, true);
       setFamilyCast({ ...updatedCast });
       onCastUpdated(updatedCast);
+
+      analyticsService.trackLanguageRecording(
+        selectedLanguage,
+        activeProfile.relationshipLabel || activeProfile.role,
+        result.durationSeconds,
+        story.title
+      );
     } catch (err: any) {
       setRecordingError(err?.message || 'Failed to complete voice recording.');
     }

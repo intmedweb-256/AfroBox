@@ -121,10 +121,7 @@ export const LandscapeHUD: React.FC<LandscapeHUDProps> = ({
           <div className="hidden sm:block">
             <div className="flex items-center gap-1.5 leading-none">
               <span className="font-extrabold text-base sm:text-lg text-[#23211E] font-['Urbanist']">
-                Afro <span className="text-[#E25822]">Box</span> <span className="text-[#1D3E2F]">Web</span>
-              </span>
-              <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-900">
-                BETA
+                Afro <span className="text-[#E25822]">Box</span>
               </span>
             </div>
             <div className="text-[10px] text-[#7C4728] font-bold tracking-tight mt-0.5">

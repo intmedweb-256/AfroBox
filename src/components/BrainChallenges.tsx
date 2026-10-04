@@ -13,6 +13,7 @@ import {
 import { AgeTier, BrainPuzzleEntity, PillarId } from '../types/afrobox';
 import { AFROBOX_BRAIN_PUZZLES } from '../data/brainPuzzles';
 import { afroboxStorage } from '../services/afroboxStorage';
+import { analyticsService } from '../services/analyticsService';
 
 interface BrainChallengesProps {
   onNavigatePillar: (pillar: PillarId) => void;
@@ -54,6 +55,7 @@ export const BrainChallenges: React.FC<BrainChallengesProps> = ({
       if (Object.keys(newMatches).length === items.length) {
         setIsCompleted(true);
         afroboxStorage.recordSolvedBrainPuzzle(puzzle.id);
+        analyticsService.trackPuzzleCompleted(puzzle.id, puzzle.title, puzzle.type);
         onPlayVoice(`Splendid work! You solved ${puzzle.title}!`);
       } else {
         onPlayVoice(`Match found! ${item.label}`);
