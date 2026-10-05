@@ -29,6 +29,7 @@ import { VoiceSettingsModal } from './components/VoiceSettingsModal';
 import { LearnerProfileModal } from './components/LearnerProfileModal';
 import { AdvertiserMetricsModal } from './components/AdvertiserMetricsModal';
 import { analyticsService } from './services/analyticsService';
+import { profileService } from './services/profileService';
 import {
   Compass,
   BookOpen,
@@ -49,7 +50,17 @@ export default function App() {
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [isDeploymentOpen, setIsDeploymentOpen] = useState<boolean>(false);
   const [isVoiceSettingsOpen, setIsVoiceSettingsOpen] = useState<boolean>(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+
+  // Check whether user has created initial learner profile
+  const [isFirstTimeOnboarding, setIsFirstTimeOnboarding] = useState<boolean>(() => {
+    return !profileService.hasOnboarded();
+  });
+
+  // Profile modal opens on start:
+  // - First load: Opens in "Create Profile" mode
+  // - Subsequent loads: Opens in "Character Select / Switch" pop-up mode
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(true);
+
   const [isMetricsOpen, setIsMetricsOpen] = useState<boolean>(false);
 
   // Landscape companion side panel state
@@ -70,13 +81,8 @@ export default function App() {
   const [completedStoryIds, setCompletedStoryIds] = useState<string[]>([]);
   const [totalDiscoveriesCount, setTotalDiscoveriesCount] = useState<number>(0);
 
-  // Navigation intro tour state
-  const [isTourOpen, setIsTourOpen] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('afrobox_hide_tour') !== 'true';
-    }
-    return true;
-  });
+  // Navigation intro tour state: accessible on demand via HUD/QuickDock button (not auto-popping on start)
+  const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
 
   const handleHideTourNextTime = () => {
     localStorage.setItem('afrobox_hide_tour', 'true');
@@ -125,6 +131,7 @@ export default function App() {
   const handleChangeAgeTier = (tier: AgeTier) => {
     setAgeTier(tier);
     afroboxStorage.setAgeTier(tier);
+    analyticsService.trackAgeTierChanged(tier);
     handlePlayVoice(`Switched to Ages ${tier} experience`);
   };
 
@@ -481,7 +488,20 @@ export default function App() {
         {/* Child & Student Learner Profiles Modal */}
         <LearnerProfileModal
           isOpen={isProfileModalOpen}
-          onClose={() => setIsProfileModalOpen(false)}
+          isFirstTimeOnboarding={isFirstTimeOnboarding}
+          onFirstProfileCreated={(p) => {
+            setIsFirstTimeOnboarding(false);
+            setIsProfileModalOpen(false);
+            setAgeTier(p.ageTier);
+            setTotalDiscoveriesCount(afroboxStorage.getMyBoxState().discoveries?.length || 0);
+            // After profile creation, we then show tips!
+            setTimeout(() => {
+              setIsTourOpen(true);
+            }, 300);
+          }}
+          onClose={() => {
+            setIsProfileModalOpen(false);
+          }}
           onProfileChanged={(p) => {
             setAgeTier(p.ageTier);
             setTotalDiscoveriesCount(afroboxStorage.getMyBoxState().discoveries?.length || 0);

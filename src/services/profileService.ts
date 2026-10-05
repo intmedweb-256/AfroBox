@@ -4,8 +4,9 @@ import { afroboxStorage } from './afroboxStorage';
 import { storageService } from './storageService';
 import { gamificationService } from './gamificationService';
 
-const PROFILES_STORAGE_KEY = 'afrobox_learner_profiles_v2';
-const ACTIVE_PROFILE_ID_KEY = 'afrobox_active_learner_id_v2';
+const ONBOARDING_COMPLETED_KEY = 'afrobox_has_created_profile_v3';
+const PROFILES_STORAGE_KEY = 'afrobox_learner_profiles_v3';
+const ACTIVE_PROFILE_ID_KEY = 'afrobox_active_learner_id_v3';
 
 export const CULTURAL_AVATARS = [
   { emoji: '🦁', name: 'Simba the Lion', color: '#C85A32' },
@@ -20,7 +21,7 @@ export const CULTURAL_AVATARS = [
   { emoji: '🦉', name: 'Wise Night Owl', color: '#4338CA' }
 ];
 
-const DEFAULT_PROFILE: LearnerProfile = {
+export const DEFAULT_PROFILE: LearnerProfile = {
   id: 'learner_default_1',
   name: 'Amara',
   avatar: '🦁',
@@ -50,21 +51,42 @@ class ProfileService {
     this.listeners.forEach((l) => l());
   }
 
+  public hasOnboarded(): boolean {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem(ONBOARDING_COMPLETED_KEY) === 'true';
+  }
+
+  public markOnboarded(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+  }
+
+  public clearCache(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem(ONBOARDING_COMPLETED_KEY);
+    localStorage.removeItem(PROFILES_STORAGE_KEY);
+    localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
+    localStorage.removeItem('afrobox_profile_confirmed');
+    localStorage.removeItem('afrobox_learner_profiles_v2');
+    localStorage.removeItem('afrobox_active_learner_id_v2');
+    localStorage.removeItem('afrobox_hide_tour');
+    sessionStorage.removeItem('afrobox_profile_confirmed');
+    this.notify();
+  }
+
   public getProfiles(): LearnerProfile[] {
     try {
       const data = localStorage.getItem(PROFILES_STORAGE_KEY);
       if (!data) {
-        const initial = [DEFAULT_PROFILE];
-        this.saveProfiles(initial);
-        return initial;
+        return [];
       }
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
-      return [DEFAULT_PROFILE];
+      return [];
     } catch {
-      return [DEFAULT_PROFILE];
+      return [];
     }
   }
 
@@ -83,17 +105,23 @@ class ProfileService {
       if (id && profiles.some((p) => p.id === id)) {
         return id;
       }
-      const fallbackId = profiles[0]?.id || DEFAULT_PROFILE.id;
-      this.setActiveProfileId(fallbackId);
-      return fallbackId;
+      if (profiles.length > 0) {
+        const fallbackId = profiles[0].id;
+        this.setActiveProfileId(fallbackId);
+        return fallbackId;
+      }
+      return DEFAULT_PROFILE.id;
     } catch {
       return DEFAULT_PROFILE.id;
     }
   }
 
   public getActiveProfile(): LearnerProfile {
-    const activeId = this.getActiveProfileId();
     const profiles = this.getProfiles();
+    if (profiles.length === 0) {
+      return DEFAULT_PROFILE;
+    }
+    const activeId = this.getActiveProfileId();
     const found = profiles.find((p) => p.id === activeId);
     return found || profiles[0] || DEFAULT_PROFILE;
   }
@@ -145,6 +173,7 @@ class ProfileService {
     const updated = [...profiles, newProfile];
     this.saveProfiles(updated);
     this.setActiveProfileId(newProfile.id);
+    this.markOnboarded();
     return newProfile;
   }
 

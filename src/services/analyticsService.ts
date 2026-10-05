@@ -297,10 +297,21 @@ class AnalyticsService {
     this.ledger.pillarMetrics[key].visits += 1;
     this.saveLedger();
 
+    // 1. Custom event for section analytics
     this.sendGtag('pillar_view', {
       pillar_id: pillarId,
       pillar_name: name || pillarId
     });
+
+    // 2. Virtual page_view for GA4 "Pages and screens" report
+    if (typeof window !== 'undefined') {
+      const pagePath = `/#${pillarId.toLowerCase()}`;
+      this.sendGtag('page_view', {
+        page_title: `AfroBox - ${name || pillarId}`,
+        page_location: `${window.location.origin}${pagePath}`,
+        page_path: pagePath
+      });
+    }
   }
 
   /**
@@ -545,10 +556,35 @@ class AnalyticsService {
   /**
    * 9. Learner Profiles & UX Preferences
    */
-  public trackProfileSwitch(profileName: string, level: number, ageTier: string): void {
+  public trackProfileCreated(name: string, ageTier: string, grade?: string): void {
+    this.sendGtag('profile_created', {
+      profile_name: name,
+      age_tier: ageTier,
+      school_grade: grade || 'Unspecified'
+    });
+  }
+
+  public trackProfileSwitched(profileName: string, ageTier: string): void {
     this.sendGtag('learner_profile_switched', {
-      learner_level: level,
+      profile_name: profileName,
       age_tier: ageTier
+    });
+  }
+
+  public trackProfileSwitch(profileName: string, level: number, ageTier: string): void {
+    this.trackProfileSwitched(profileName, ageTier);
+  }
+
+  public trackAgeTierChanged(ageTier: string): void {
+    this.sendGtag('age_tier_select', {
+      age_tier: ageTier
+    });
+  }
+
+  public trackVoiceChanged(voiceName: string, engine: string): void {
+    this.sendGtag('voice_narrator_changed', {
+      voice_name: voiceName,
+      engine
     });
   }
 

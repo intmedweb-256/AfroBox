@@ -208,13 +208,16 @@ export const AdvertiserMetricsModal: React.FC<AdvertiserMetricsModalProps> = ({
                   </div>
                 )}
 
-                <div className="text-[11px] text-[#7C4728] bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/80 space-y-1">
-                  <div className="font-extrabold text-[#23211E]">How to find your Google Analytics 4 Measurement ID:</div>
-                  <ol className="list-decimal list-inside space-y-0.5">
-                    <li>Go to <a href="https://analytics.google.com" target="_blank" rel="noreferrer" className="underline font-bold text-[#C85A32]">analytics.google.com</a> and sign in with your Google account.</li>
-                    <li>Click <strong>Admin</strong> (gear icon bottom left) &rarr; <strong>Data Streams</strong> &rarr; select or create a <strong>Web</strong> stream.</li>
-                    <li>Copy your <strong>Measurement ID</strong> (formatted like <code>G-XXXXXXXXXX</code>) and paste it above.</li>
-                  </ol>
+                <div className="text-[11px] text-[#7C4728] bg-amber-50/60 p-2.5 rounded-xl border border-amber-200/80 space-y-1.5">
+                  <div className="font-extrabold text-[#23211E]">How to check your most-used sections & features in Google Analytics:</div>
+                  <ul className="space-y-1 list-disc list-inside">
+                    <li><strong>Most-Used Sections:</strong> In GA4, go to <em>Reports &rarr; Engagement &rarr; Pages and screens</em> to see traffic and minutes spent ranked by section (<code>/#explore</code>, <code>/#storylands</code>, <code>/#riddle</code>, <code>/#brain</code>).</li>
+                    <li><strong>Feature Usage Frequency:</strong> Go to <em>Reports &rarr; Engagement &rarr; Events</em> to see live counts of <code>story_start</code>, <code>map_pin_interact</code>, <code>riddle_solved</code>, <code>puzzle_complete</code>, and <code>narration_listen</code>.</li>
+                    <li><strong>Realtime Testing:</strong> Check <em>Reports &rarr; Realtime</em> while clicking around AfroBox to watch events arrive live.</li>
+                  </ul>
+                  <div className="pt-1 text-[10px] text-stone-500">
+                    To link a new GA4 property: Click Admin (gear icon) &rarr; Data Streams &rarr; Web &rarr; Copy Measurement ID (e.g. <code>G-XXXXXXXXXX</code>).
+                  </div>
                 </div>
               </form>
             )}

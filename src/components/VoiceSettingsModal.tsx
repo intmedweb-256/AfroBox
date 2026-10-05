@@ -23,6 +23,7 @@ import {
   AIGriotVoice,
   NarratorEngineType
 } from '../services/audioEngine';
+import { analyticsService } from '../services/analyticsService';
 
 interface VoiceSettingsModalProps {
   isOpen: boolean;
@@ -76,8 +77,8 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
     audioEngine.testVoiceSample(
       'Once upon a time in the whispering savannas of Africa, the wise animals gathered beneath the ancient baobab tree.',
       undefined,
-      pitch,
-      rate,
+      undefined,
+      undefined,
       voiceId,
       'AI_GRIOT',
       () => setPreviewingVoiceId(null)
@@ -112,6 +113,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
       pitch,
       rate
     });
+    analyticsService.trackVoiceChanged(selectedAiVoice || selectedVoiceURI || 'Default', narratorEngine);
     onVoiceChanged?.();
     onClose();
   };

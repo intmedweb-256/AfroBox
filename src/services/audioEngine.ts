@@ -24,6 +24,9 @@ export interface GriotVoicePersona {
   avatar: string;
   description: string;
   stylePrompt: string;
+  gender: 'female' | 'male';
+  recommendedPitch: number;
+  recommendedRate: number;
 }
 
 export const GRIOT_VOICE_PERSONAS: GriotVoicePersona[] = [
@@ -33,7 +36,10 @@ export const GRIOT_VOICE_PERSONAS: GriotVoicePersona[] = [
     title: 'Warm Matriarch Storyteller',
     avatar: '👵🏾',
     description: 'Nurturing, melodic, engaging oral storytelling for young children',
-    stylePrompt: 'Warm, nurturing, melodic African matriarch storyteller with gentle pacing and expressive pauses for young children'
+    stylePrompt: 'Warm, nurturing, melodic African matriarch storyteller with gentle pacing and expressive pauses for young children',
+    gender: 'female',
+    recommendedPitch: 1.05,
+    recommendedRate: 0.90
   },
   {
     id: 'Fenrir',
@@ -41,7 +47,10 @@ export const GRIOT_VOICE_PERSONAS: GriotVoicePersona[] = [
     title: 'Wise Village Elder',
     avatar: '👴🏾',
     description: 'Deep, resonant, ancestral voice steeped in wisdom and epic legends',
-    stylePrompt: 'Deep, resonant, wise African village elder with commanding warmth and thoughtful cadence'
+    stylePrompt: 'Deep, resonant, wise African village elder with commanding warmth and thoughtful cadence',
+    gender: 'male',
+    recommendedPitch: 0.82,
+    recommendedRate: 0.88
   },
   {
     id: 'Puck',
@@ -49,7 +58,10 @@ export const GRIOT_VOICE_PERSONAS: GriotVoicePersona[] = [
     title: 'Lively Folktale Griot',
     avatar: '👦🏾',
     description: 'Playful, animated, rhythmic narrator perfect for Anansi & animal fables',
-    stylePrompt: 'Cheerful, lively, animated African storyteller with high energy, playful rhythm, and warmth'
+    stylePrompt: 'Cheerful, lively, animated African storyteller with high energy, playful rhythm, and warmth',
+    gender: 'male',
+    recommendedPitch: 1.14,
+    recommendedRate: 1.02
   },
   {
     id: 'Zephyr',
@@ -57,7 +69,10 @@ export const GRIOT_VOICE_PERSONAS: GriotVoicePersona[] = [
     title: 'Gentle Bedtime Storyteller',
     avatar: '🌸',
     description: 'Soft, soothing, tranquil voice ideal for quiet focus and evening reading',
-    stylePrompt: 'Gentle, soothing, tranquil, and clear voice with peaceful storytelling cadence for children'
+    stylePrompt: 'Gentle, soothing, tranquil, and clear voice with peaceful storytelling cadence for children',
+    gender: 'female',
+    recommendedPitch: 1.08,
+    recommendedRate: 0.84
   },
   {
     id: 'Charon',
@@ -65,7 +80,10 @@ export const GRIOT_VOICE_PERSONAS: GriotVoicePersona[] = [
     title: 'Historical Chronicler',
     avatar: '📜',
     description: 'Measured, noble, reflective narrator for geography and kingdom lore',
-    stylePrompt: 'Noble, measured, clear, and dignified African storyteller presenting rich cultural history'
+    stylePrompt: 'Noble, measured, clear, and dignified African storyteller presenting rich cultural history',
+    gender: 'male',
+    recommendedPitch: 0.88,
+    recommendedRate: 0.92
   }
 ];
 
@@ -100,13 +118,180 @@ export class AudioEngine {
   private abortController: AbortController | null = null;
   private isProcessingAiSpeech = false;
 
+  private primedAudio: HTMLAudioElement | null = null;
+
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       this.cachedVoices = window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
-        this.cachedVoices = window.speechSynthesis.getVoices();
+        const v = window.speechSynthesis.getVoices();
+        if (v && v.length > 0) {
+          this.cachedVoices = v;
+        }
       };
+      // Fallback check for mobile Chrome and tablet browsers
+      setTimeout(() => {
+        if (this.cachedVoices.length === 0) {
+          this.cachedVoices = window.speechSynthesis.getVoices();
+        }
+      }, 300);
     }
+  }
+
+  /**
+   * Synchronously prime audio element during user gesture so subsequent
+   * async network responses can play on mobile/tablet Chrome without autoplay policy rejection.
+   */
+  public primeAudioForMobile(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      if (!this.primedAudio) {
+        this.primedAudio = new Audio();
+      }
+      this.primedAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      this.primedAudio.play().then(() => {
+        if (this.primedAudio) {
+          this.primedAudio.pause();
+          this.primedAudio.currentTime = 0;
+        }
+      }).catch(() => {});
+    } catch {}
+  }
+
+  /**
+   * Intelligently selects a matching browser voice, pitch, and speed for each Griot Persona.
+   * Ensures that on Chrome web and tablet (even offline or on fallback), switching Griots
+   * produces audibly distinct voices (deep elder, warm matriarch, lively youth, gentle sister).
+   */
+  public static getBestVoiceForPersona(
+    personaId: AIGriotVoice,
+    voices: SpeechSynthesisVoice[]
+  ): { voice: SpeechSynthesisVoice | null; pitch: number; rate: number } {
+    let available = voices;
+    if ((!available || available.length === 0) && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      available = window.speechSynthesis.getVoices();
+    }
+    if (!available || available.length === 0) {
+      return { voice: null, pitch: 1.0, rate: 0.95 };
+    }
+
+    const persona = GRIOT_VOICE_PERSONAS.find((p) => p.id === personaId) || GRIOT_VOICE_PERSONAS[0];
+    const isMalePersona = persona.gender === 'male';
+
+    const isVoiceMale = (v: SpeechSynthesisVoice) => {
+      const n = v.name.toLowerCase();
+      const l = v.lang.toLowerCase();
+      return (
+        n.includes('male') ||
+        n.includes('david') ||
+        n.includes('george') ||
+        n.includes('guy') ||
+        n.includes('brian') ||
+        n.includes('mark') ||
+        n.includes('oliver') ||
+        n.includes('richard') ||
+        n.includes('daniel') ||
+        n.includes('ryan') ||
+        n.includes('alex') ||
+        n.includes('james') ||
+        n.includes('andrew') ||
+        n.includes('-m-') ||
+        n.includes('x-sfg') // Android TTS male default
+      );
+    };
+
+    const isVoiceFemale = (v: SpeechSynthesisVoice) => {
+      const n = v.name.toLowerCase();
+      return (
+        n.includes('female') ||
+        n.includes('zira') ||
+        n.includes('hazel') ||
+        n.includes('susan') ||
+        n.includes('jenny') ||
+        n.includes('aria') ||
+        n.includes('sonia') ||
+        n.includes('catherine') ||
+        n.includes('kore') ||
+        n.includes('samantha') ||
+        n.includes('victoria') ||
+        n.includes('-f-') ||
+        n.includes('x-tpd') // Android TTS female default
+      );
+    };
+
+    // Filter by persona gender
+    let genderFiltered = available.filter((v) => (isMalePersona ? isVoiceMale(v) : isVoiceFemale(v)));
+    if (genderFiltered.length === 0) {
+      genderFiltered = available;
+    }
+
+    // 1. Regional African voices
+    const africanVoice = genderFiltered.find((v) => {
+      const l = v.lang.toLowerCase();
+      const n = v.name.toLowerCase();
+      return (
+        l === 'en-ng' ||
+        l === 'en-za' ||
+        l === 'en-ke' ||
+        l === 'en-gh' ||
+        l.startsWith('sw') ||
+        l.startsWith('yo') ||
+        l.startsWith('zu') ||
+        n.includes('nigeria') ||
+        n.includes('south africa') ||
+        n.includes('kenya') ||
+        n.includes('swahili')
+      );
+    });
+
+    // 2. Persona-specific natural matches
+    let chosenVoice: SpeechSynthesisVoice | undefined;
+
+    if (personaId === 'Fenrir') {
+      // Baba Griot: Prioritize deep, resonant male voices
+      chosenVoice =
+        africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english male')) ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('google us english')) ||
+        genderFiltered.find((v) => isVoiceMale(v)) ||
+        genderFiltered[0];
+    } else if (personaId === 'Puck') {
+      // Brother Kwaku: Prioritize energetic, rhythmic young male
+      chosenVoice =
+        africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('google')) ||
+        genderFiltered.find((v) => v.lang.toLowerCase().includes('en-au')) ||
+        genderFiltered.find((v) => isVoiceMale(v)) ||
+        genderFiltered[0];
+    } else if (personaId === 'Zephyr') {
+      // Sister Amina: Gentle, soothing female voice
+      chosenVoice =
+        africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english female')) ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('jenny')) ||
+        genderFiltered.find((v) => isVoiceFemale(v)) ||
+        genderFiltered[0];
+    } else if (personaId === 'Charon') {
+      // Elder Osei: Measured, dignified male
+      chosenVoice =
+        africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english male')) ||
+        genderFiltered.find((v) => isVoiceMale(v)) ||
+        genderFiltered[0];
+    } else {
+      // Mama Kore: Warm, nurturing matriarch
+      chosenVoice =
+        africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english female')) ||
+        genderFiltered.find((v) => isVoiceFemale(v)) ||
+        genderFiltered[0];
+    }
+
+    return {
+      voice: chosenVoice || AudioEngine.getBestNaturalVoice(available),
+      pitch: persona.recommendedPitch,
+      rate: persona.recommendedRate
+    };
   }
 
   public static getBestNaturalVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
@@ -120,17 +305,7 @@ export class AudioEngine {
     const isRoboticSynth = (n: string) => {
       const lower = n.toLowerCase();
       return (
-        lower.includes('desktop') ||
         lower.includes('espeak') ||
-        lower.includes('david') ||
-        lower.includes('mark') ||
-        lower.includes('zira') ||
-        lower.includes('george') ||
-        lower.includes('hazel') ||
-        lower.includes('heera') ||
-        lower.includes('alex') ||
-        lower.includes('fred') ||
-        lower.includes('sam') ||
         lower.includes('zarvox') ||
         lower.includes('trinoids') ||
         lower.includes('whisper') ||
@@ -165,9 +340,6 @@ export class AudioEngine {
     if (africanVoice) return africanVoice;
 
     // 2. High-quality natural voices in Chrome Desktop:
-    // In Chrome on desktop, Google voices ("Google UK English Female", "Google US English", "Google UK English Male")
-    // are dramatically more natural than OS legacy SAPI5 voices.
-    // "Google UK English Female" provides a warm, melodious storytelling cadence.
     const googleUkFemale = available.find((v) => v.name.toLowerCase().includes('google uk english female'));
     if (googleUkFemale) return googleUkFemale;
 
@@ -177,7 +349,7 @@ export class AudioEngine {
     const googleUs = available.find((v) => v.name.toLowerCase().includes('google us english'));
     if (googleUs) return googleUs;
 
-    // 3. Online Natural/Neural voices (Edge/Windows 11 Online Natural)
+    // 3. Online Natural/Neural voices
     const onlineNatural = available.find((v) => {
       const n = v.name.toLowerCase();
       return (
@@ -197,7 +369,7 @@ export class AudioEngine {
     );
     if (anyGoogle) return anyGoogle;
 
-    // 5. High-quality Commonwealth / British or Irish English (natural cadenced storytelling)
+    // 5. High-quality Commonwealth / British or Irish English
     const commonwealthNatural = available.find((v) => {
       const l = v.lang.toLowerCase();
       const n = v.name.toLowerCase();
@@ -205,7 +377,7 @@ export class AudioEngine {
     });
     if (commonwealthNatural) return commonwealthNatural;
 
-    // 6. Any English voice that is NOT an obsolete robotic SAPI5 desktop synth
+    // 6. Any English voice that is NOT an obsolete synth
     const nonRobotic = available.find((v) => {
       const n = v.name.toLowerCase();
       return v.lang.toLowerCase().startsWith('en') && !isRoboticSynth(n);
@@ -248,6 +420,7 @@ export class AudioEngine {
     listeners: AudioEngineListeners = {}
   ): void {
     this.stopSpeaking();
+    this.primeAudioForMobile();
 
     const prefs = this.getVoicePreferences();
     const useAiGriot = prefs.narratorEngine !== 'BROWSER_SPEECH';
@@ -323,8 +496,8 @@ export class AudioEngine {
           }
         } catch (fetchErr: any) {
           if (signal.aborted) return;
-          console.warn('AI TTS failed or unavailable, falling back to browser speech:', fetchErr);
-          // Gracefully fallback to browser speech synthesis
+          console.warn('AI TTS failed or unavailable, falling back to browser persona:', fetchErr);
+          // Gracefully fallback to browser speech synthesis with persona voice mapping
           this.speakParagraphsBrowser(paragraphs, currentIndex, rateOverride, listeners);
           return;
         }
@@ -340,7 +513,7 @@ export class AudioEngine {
           playNextParagraph();
         },
         (err) => {
-          console.warn('AI Audio play error, falling back to browser:', err);
+          console.warn('AI Audio play error, falling back to browser persona:', err);
           this.speakParagraphsBrowser(paragraphs, currentIndex, rateOverride, listeners);
         }
       );
@@ -354,7 +527,7 @@ export class AudioEngine {
     playNextParagraph();
   }
 
-  // Device Browser Web Speech API Narration (Enhanced for Chrome Desktop & Mobile)
+  // Device Browser Web Speech API Narration (Enhanced for Chrome Desktop & Mobile & Tablets)
   public speakParagraphsBrowser(
     paragraphs: string[],
     startIndex: number = 0,
@@ -372,23 +545,27 @@ export class AudioEngine {
     const voices = this.getAvailableVoices();
     const prefs = this.getVoicePreferences();
 
-    // 1. Try explicitly chosen voiceURI
     let selectedVoice: SpeechSynthesisVoice | null = null;
-    if (prefs.voiceURI) {
-      selectedVoice = voices.find((v) => v.voiceURI === prefs.voiceURI) || null;
-    }
+    let computedPitch = 1.0;
+    let computedRate = rateOverride !== undefined ? rateOverride : (prefs.rate || 0.95);
 
-    // 2. If not selected, prioritize regional African or high-quality natural voices
-    if (!selectedVoice) {
-      selectedVoice = AudioEngine.getBestNaturalVoice(voices);
+    // If Griot persona is requested, map to distinct voice + pitch + speed
+    if (prefs.narratorEngine === 'AI_GRIOT') {
+      const match = AudioEngine.getBestVoiceForPersona(prefs.aiVoiceName || 'Kore', voices);
+      selectedVoice = match.voice;
+      computedPitch = match.pitch;
+      computedRate = rateOverride !== undefined ? rateOverride : match.rate;
+    } else {
+      // Offline / Custom device voice selection
+      if (prefs.voiceURI) {
+        selectedVoice = voices.find((v) => v.voiceURI === prefs.voiceURI) || null;
+      }
+      if (!selectedVoice) {
+        selectedVoice = AudioEngine.getBestNaturalVoice(voices);
+      }
+      computedPitch = prefs.pitch || 1.0;
+      computedRate = rateOverride !== undefined ? rateOverride : (prefs.rate || 0.95);
     }
-
-    // Rate & Pitch Normalization:
-    // In desktop Chrome, changing pitch away from 1.0 engages an artificial time-domain DSP formant shifter
-    // that produces a tinny robotic vibration. Maintaining pitch at 1.0 preserves the authentic human vocal recording.
-    const computedRate = rateOverride !== undefined ? rateOverride : (prefs.rate || 0.95);
-    const isCustomPitch = prefs.presetName === 'CUSTOM' && prefs.pitch !== undefined;
-    const computedPitch = isCustomPitch ? prefs.pitch : 1.0;
 
     const playNextParagraph = () => {
       if (currentIndex >= paragraphs.length) {
@@ -460,6 +637,7 @@ export class AudioEngine {
     onEnd?: () => void
   ): Promise<void> {
     this.stopSpeaking();
+    this.primeAudioForMobile();
     const prefs = this.getVoicePreferences();
     const targetEngine = engine || prefs.narratorEngine || 'AI_GRIOT';
 
@@ -487,8 +665,25 @@ export class AudioEngine {
           }
         }
       } catch (err) {
-        console.warn('AI voice preview failed, falling back to browser:', err);
+        console.warn('AI voice preview failed, falling back to persona browser voice:', err);
       }
+
+      // Persona-specific fallback on Web and Tablet
+      if (!('speechSynthesis' in window)) {
+        onEnd?.();
+        return;
+      }
+      const voices = this.getAvailableVoices();
+      const match = AudioEngine.getBestVoiceForPersona(selectedAiVoice, voices);
+      const utterance = new SpeechSynthesisUtterance(sampleText);
+      if (match.voice) utterance.voice = match.voice;
+      utterance.pitch = pitch !== undefined ? pitch : match.pitch;
+      utterance.rate = rate !== undefined ? rate : match.rate;
+      utterance.onend = () => onEnd?.();
+      utterance.onerror = () => onEnd?.();
+      this.currentUtterance = utterance;
+      window.speechSynthesis.speak(utterance);
+      return;
     }
 
     // Fallback to browser voice test
@@ -503,9 +698,8 @@ export class AudioEngine {
     const chosenVoice = targetVoice || AudioEngine.getBestNaturalVoice(voices);
 
     const utterance = new SpeechSynthesisUtterance(sampleText);
-    const isCustomPitch = prefs.presetName === 'CUSTOM' && pitch !== undefined;
-    utterance.rate = rate !== undefined ? rate : 0.95;
-    utterance.pitch = isCustomPitch ? pitch! : 1.0;
+    utterance.rate = rate !== undefined ? rate : (prefs.rate || 0.95);
+    utterance.pitch = pitch !== undefined ? pitch : (prefs.pitch || 1.0);
 
     if (chosenVoice) {
       utterance.voice = chosenVoice;
@@ -546,8 +740,13 @@ export class AudioEngine {
     this.stopSpeaking();
     this.stopAudioUrl();
 
-    const audio = new Audio(url);
+    let audio = this.primedAudio;
+    if (!audio) {
+      audio = new Audio();
+    }
+    this.primedAudio = null;
     this.activeAudioElement = audio;
+    audio.src = url;
 
     audio.onended = () => {
       this.activeAudioElement = null;
@@ -583,6 +782,7 @@ export class AudioEngine {
     const trimmed = text?.trim();
     if (!trimmed) return;
     this.stopSpeaking();
+    this.primeAudioForMobile();
 
     const prefs = this.getVoicePreferences();
     const useAiGriot = prefs.narratorEngine !== 'BROWSER_SPEECH';
@@ -637,13 +837,33 @@ export class AudioEngine {
 
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = this.getAvailableVoices();
-    const naturalVoice = AudioEngine.getBestNaturalVoice(voices);
+    const prefs = this.getVoicePreferences();
 
-    if (naturalVoice) {
-      utterance.voice = naturalVoice;
+    let selectedVoice: SpeechSynthesisVoice | null = null;
+    let computedPitch = 1.0;
+    let computedRate = 0.92;
+
+    if (prefs.narratorEngine === 'AI_GRIOT') {
+      const match = AudioEngine.getBestVoiceForPersona(prefs.aiVoiceName || 'Kore', voices);
+      selectedVoice = match.voice;
+      computedPitch = match.pitch;
+      computedRate = match.rate;
+    } else {
+      if (prefs.voiceURI) {
+        selectedVoice = voices.find((v) => v.voiceURI === prefs.voiceURI) || null;
+      }
+      if (!selectedVoice) {
+        selectedVoice = AudioEngine.getBestNaturalVoice(voices);
+      }
+      computedPitch = prefs.pitch || 1.0;
+      computedRate = prefs.rate || 0.92;
     }
-    utterance.rate = 0.90;
-    utterance.pitch = 1.0;
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+    utterance.rate = computedRate;
+    utterance.pitch = computedPitch;
 
     utterance.onend = () => onEnd?.();
     utterance.onerror = () => onEnd?.();

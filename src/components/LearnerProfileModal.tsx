@@ -14,23 +14,29 @@ import {
   Award,
   BookOpen,
   Compass,
-  ArrowRight
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react';
 import { LearnerProfile } from '../types/profile';
 import { profileService, CULTURAL_AVATARS } from '../services/profileService';
 import { AgeTier } from '../types/afrobox';
 import { gamificationService, LevelInfo } from '../services/gamificationService';
+import { analyticsService } from '../services/analyticsService';
 
 interface LearnerProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProfileChanged?: (profile: LearnerProfile) => void;
+  isFirstTimeOnboarding?: boolean;
+  onFirstProfileCreated?: (profile: LearnerProfile) => void;
 }
 
 export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
   isOpen,
   onClose,
-  onProfileChanged
+  onProfileChanged,
+  isFirstTimeOnboarding = false,
+  onFirstProfileCreated
 }) => {
   const [profiles, setProfiles] = useState<LearnerProfile[]>([]);
   const [activeProfileId, setActiveProfileId] = useState<string>('');
@@ -56,7 +62,17 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
     setProfiles(list);
     const activeId = profileService.getActiveProfileId();
     setActiveProfileId(activeId);
+
+    // If first-time onboarding or no profiles exist, force open create form
+    if (isFirstTimeOnboarding || !profileService.hasOnboarded() || list.length === 0) {
+      setIsCreating(true);
+      setEditingProfileId(null);
+    }
   };
+
+  const isFirstTime = Boolean(
+    isFirstTimeOnboarding || !profileService.hasOnboarded() || profiles.length === 0
+  );
 
   if (!isOpen) return null;
 
@@ -64,6 +80,7 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
     profileService.setActiveProfileId(id);
     setActiveProfileId(id);
     const active = profileService.getActiveProfile();
+    analyticsService.trackProfileSwitched(active.name, active.ageTier);
     onProfileChanged?.(active);
     onClose();
   };
@@ -100,21 +117,30 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
         ageTier: formAgeTier,
         schoolGrade: formGrade.trim()
       });
+      loadData();
+      const updated = profileService.getActiveProfile();
+      onProfileChanged?.(updated);
+      setIsCreating(false);
+      setEditingProfileId(null);
     } else {
-      profileService.createProfile({
+      const wasFirstTime = isFirstTime;
+      const created = profileService.createProfile({
         name: formName.trim(),
         avatar: formAvatar,
         avatarColor: formColor,
         ageTier: formAgeTier,
         schoolGrade: formGrade.trim()
       });
+      analyticsService.trackProfileCreated(created.name, created.ageTier, created.schoolGrade);
+      loadData();
+      onProfileChanged?.(created);
+      setIsCreating(false);
+      setEditingProfileId(null);
+      if (wasFirstTime) {
+        onFirstProfileCreated?.(created);
+      }
+      onClose();
     }
-
-    setIsCreating(false);
-    setEditingProfileId(null);
-    loadData();
-    const updated = profileService.getActiveProfile();
-    onProfileChanged?.(updated);
   };
 
   const handleDeleteProfile = (id: string, name: string) => {
@@ -168,10 +194,17 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
     e.target.value = '';
   };
 
+  const handleResetCache = () => {
+    if (window.confirm('Clear all local learner profiles and restart as a new user? This will test the first-load profile creation & tips.')) {
+      profileService.clearCache();
+      window.location.reload();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in"
-      onClick={onClose}
+      onClick={isFirstTime ? undefined : onClose}
     >
       <div
         className="bg-[#FBF7EE] rounded-3xl border-2 border-[#E6DCBF] shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
@@ -186,28 +219,50 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-black text-[#23211E] font-['Urbanist'] leading-tight">
-                  Learner Profiles & Progress
+                  {isFirstTime ? 'Welcome to AfroBox!' : 'Learner Profiles & Progress'}
                 </h2>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-extrabold uppercase">
-                  Class & Home
+                  {isFirstTime ? 'First Time Setup' : 'Class & Home'}
                 </span>
               </div>
               <p className="text-xs text-[#7C4728] font-medium">
-                Personalized stars, completed quests, and age-adapted reading for each child
+                {isFirstTime
+                  ? "Create your child's profile to personalize reading levels, discovery stars, and storyteller voices"
+                  : 'Personalized stars, completed quests, and age-adapted reading for each child'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-[#F0E8D0] text-[#7C4728] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {!isFirstTime && (
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl hover:bg-[#F0E8D0] text-[#7C4728] transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </header>
 
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+          {/* Welcome / Quick Tip for Profile Selection */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 to-orange-500/10 border-2 border-amber-400/40 flex items-start gap-3 shadow-xs">
+            <span className="text-2xl shrink-0">🦁</span>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs sm:text-sm font-black text-[#23211E] uppercase tracking-wide">
+                  Who is Exploring AfroBox Today?
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-[#1D3E2F] text-white text-[9px] font-black uppercase tracking-wider">
+                  Select Profile
+                </span>
+              </div>
+              <p className="text-xs text-[#7C4728] leading-relaxed">
+                Choose or add your child or student profile below. Each profile preserves their individual discovery stars, reading level (Ages 4-7, 8-10, 11+), and storytelling voice.
+              </p>
+            </div>
+          </div>
+
           {/* Notification banner */}
           {backupMessage && (
             <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
@@ -300,18 +355,24 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
             >
               <div className="flex items-center justify-between pb-2 border-b border-[#E6DCBF]">
                 <h4 className="text-sm font-black text-[#23211E]">
-                  {editingProfileId ? '✏️ Edit Learner Profile' : '✨ New Learner Profile'}
+                  {isFirstTime
+                    ? '✨ Create Your Child’s Learner Profile'
+                    : editingProfileId
+                    ? '✏️ Edit Learner Profile'
+                    : '✨ New Learner Profile'}
                 </h4>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreating(false);
-                    setEditingProfileId(null);
-                  }}
-                  className="text-xs font-bold text-stone-500 hover:text-stone-800"
-                >
-                  Cancel
-                </button>
+                {!isFirstTime && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setEditingProfileId(null);
+                    }}
+                    className="text-xs font-bold text-stone-500 hover:text-stone-800"
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
 
               {/* Child Name & Grade */}
@@ -404,21 +465,24 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
 
               {/* Submit Buttons */}
               <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreating(false);
-                    setEditingProfileId(null);
-                  }}
-                  className="px-4 py-2 rounded-xl border border-[#E6DCBF] text-xs font-bold text-[#7C4728] hover:bg-[#F0E8D0]"
-                >
-                  Cancel
-                </button>
+                {!isFirstTime && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreating(false);
+                      setEditingProfileId(null);
+                    }}
+                    className="px-4 py-2 rounded-xl border border-[#E6DCBF] text-xs font-bold text-[#7C4728] hover:bg-[#F0E8D0]"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-[#C85A32] hover:bg-[#b04a25] text-white text-xs font-black shadow-xs transition-all"
+                  className="px-5 py-2.5 rounded-xl bg-[#C85A32] hover:bg-[#b04a25] text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5 hover:scale-102"
                 >
-                  {editingProfileId ? 'Save Changes' : 'Create Learner Profile'}
+                  <span>{isFirstTime ? 'Create Profile & Start AfroBox 🚀' : editingProfileId ? 'Save Changes' : 'Create Learner Profile'}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </form>
@@ -535,16 +599,15 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
                 <span>Export Class Backup (.json)</span>
               </button>
 
-              <label className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white border border-[#E6DCBF] hover:bg-[#F0E8D0] text-[#7C4728] font-bold shadow-2xs transition-colors cursor-pointer">
-                <Upload className="w-3.5 h-3.5" />
-                <span>Import Backup</span>
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleImportBackup}
-                  className="hidden"
-                />
-              </label>
+              <button
+                type="button"
+                onClick={handleResetCache}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold shadow-2xs transition-colors"
+                title="Clear all stored profiles and reset initial onboarding"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Clear Cache & Reset Setup</span>
+              </button>
             </div>
           </div>
         </div>
@@ -556,10 +619,15 @@ export const LearnerProfileModal: React.FC<LearnerProfileModalProps> = ({
           </div>
 
           <button
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-[#1D3E2F] hover:bg-[#152e23] text-white text-xs font-black shadow-2xs transition-all"
+            onClick={() => {
+              const active = profileService.getActiveProfile();
+              onProfileChanged?.(active);
+              onClose();
+            }}
+            className="px-6 py-2.5 rounded-xl bg-[#1D3E2F] hover:bg-[#152e23] text-white text-xs font-black shadow-xs transition-all flex items-center gap-1.5 hover:scale-102"
           >
-            Done
+            <span>Start Exploring with {profileService.getActiveProfile().name}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </footer>
       </div>
