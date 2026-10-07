@@ -22,7 +22,7 @@ import {
   Globe,
   Download
 } from 'lucide-react';
-import { Story, FamilyVoiceProfile, FamilyRole, StoryFamilyVoiceCast, SceneVoiceRecording } from '../types/story';
+import { Story, StoryParagraph, FamilyVoiceProfile, FamilyRole, StoryFamilyVoiceCast, SceneVoiceRecording } from '../types/story';
 import { storageService } from '../services/storageService';
 import { audioEngine } from '../services/audioEngine';
 import { analyticsService } from '../services/analyticsService';
@@ -102,8 +102,10 @@ export const FamilyVoiceStudioModal: React.FC<FamilyVoiceStudioModalProps> = ({
   if (!isOpen) return null;
 
   const paragraphs = story?.paragraphs || [];
-  const currentParagraph = paragraphs[currentSceneIndex] || paragraphs[0] || {
+  const currentParagraph: StoryParagraph = paragraphs[currentSceneIndex] || paragraphs[0] || {
+    id: 'fallback-p',
     paragraphNumber: 1,
+    heading: '',
     text: 'Listen and record your family voice for this scene.'
   };
   const currentSceneRecording = familyCast?.sceneRecordings ? familyCast.sceneRecordings[currentSceneIndex] : undefined;

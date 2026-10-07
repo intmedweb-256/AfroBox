@@ -30,22 +30,34 @@ const SchoolModeContext = createContext<SchoolModeContextType>({
 
 export const SchoolModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSchoolMode, setIsSchoolMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('afrobox_school_mode');
-    return saved !== null ? saved === 'true' : true; // Default ON for schools & education centers
+    try {
+      const saved = localStorage.getItem('afrobox_school_mode');
+      return saved !== null ? saved === 'true' : true; // Default ON for schools & education centers
+    } catch {
+      return true;
+    }
   });
 
   const [isProjectorSize, setIsProjectorSize] = useState<boolean>(() => {
-    return localStorage.getItem('afrobox_projector_size') === 'true';
+    try {
+      return localStorage.getItem('afrobox_projector_size') === 'true';
+    } catch {
+      return false;
+    }
   });
 
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('afrobox_school_mode', String(isSchoolMode));
+    try {
+      localStorage.setItem('afrobox_school_mode', String(isSchoolMode));
+    } catch {}
   }, [isSchoolMode]);
 
   useEffect(() => {
-    localStorage.setItem('afrobox_projector_size', String(isProjectorSize));
+    try {
+      localStorage.setItem('afrobox_projector_size', String(isProjectorSize));
+    } catch {}
   }, [isProjectorSize]);
 
   const toggleFullscreen = () => {

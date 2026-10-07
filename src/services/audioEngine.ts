@@ -117,8 +117,9 @@ export class AudioEngine {
   private ttsAudioCache: Map<string, string> = new Map();
   private abortController: AbortController | null = null;
   private isProcessingAiSpeech = false;
-
   private primedAudio: HTMLAudioElement | null = null;
+  // Garbage collection protection for Microsoft Edge and Chromium V8
+  private activeUtterances: Set<SpeechSynthesisUtterance> = new Set();
 
   constructor() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
@@ -129,7 +130,7 @@ export class AudioEngine {
           this.cachedVoices = v;
         }
       };
-      // Fallback check for mobile Chrome and tablet browsers
+      // Fallback check for mobile Chrome, Edge, and tablet browsers
       setTimeout(() => {
         if (this.cachedVoices.length === 0) {
           this.cachedVoices = window.speechSynthesis.getVoices();
@@ -139,8 +140,68 @@ export class AudioEngine {
   }
 
   /**
+   * Safely speaks an utterance with garbage-collection retention and Edge unpause safeguard.
+   */
+  public safeSpeak(
+    utterance: SpeechSynthesisUtterance,
+    onEnd?: () => void,
+    onError?: (err: string) => void
+  ): void {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      onEnd?.();
+      return;
+    }
+
+    // In Microsoft Edge, speech often gets stuck in a paused state after backgrounding
+    try {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    } catch {}
+
+    // Retain in Set so Microsoft Edge / Chromium V8 garbage collector does not kill it mid-playback
+    this.activeUtterances.add(utterance);
+
+    const cleanup = () => {
+      this.activeUtterances.delete(utterance);
+      if (this.currentUtterance === utterance) {
+        this.currentUtterance = null;
+      }
+    };
+
+    const origEnd = utterance.onend;
+    utterance.onend = (e) => {
+      cleanup();
+      origEnd?.call(utterance, e);
+      onEnd?.();
+    };
+
+    const origError = utterance.onerror;
+    utterance.onerror = (e) => {
+      cleanup();
+      origError?.call(utterance, e);
+      if (e.error !== 'interrupted' && e.error !== 'canceled') {
+        onError?.(e.error || 'Speech playback notice');
+      }
+    };
+
+    this.currentUtterance = utterance;
+
+    try {
+      window.speechSynthesis.speak(utterance);
+      // Double check Edge unpause immediately after enqueueing
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+    } catch (e: any) {
+      cleanup();
+      onError?.(e?.message || 'Speech execution failed');
+    }
+  }
+
+  /**
    * Synchronously prime audio element during user gesture so subsequent
-   * async network responses can play on mobile/tablet Chrome without autoplay policy rejection.
+   * async network responses can play on mobile/tablet Chrome and Edge without autoplay policy rejection.
    */
   public primeAudioForMobile(): void {
     if (typeof window === 'undefined') return;
@@ -160,8 +221,7 @@ export class AudioEngine {
 
   /**
    * Intelligently selects a matching browser voice, pitch, and speed for each Griot Persona.
-   * Ensures that on Chrome web and tablet (even offline or on fallback), switching Griots
-   * produces audibly distinct voices (deep elder, warm matriarch, lively youth, gentle sister).
+   * Fully supports Chrome, Microsoft Edge (Online Natural Neural voices), and Mobile/Tablet Safari/Android.
    */
   public static getBestVoiceForPersona(
     personaId: AIGriotVoice,
@@ -180,7 +240,6 @@ export class AudioEngine {
 
     const isVoiceMale = (v: SpeechSynthesisVoice) => {
       const n = v.name.toLowerCase();
-      const l = v.lang.toLowerCase();
       return (
         n.includes('male') ||
         n.includes('david') ||
@@ -195,6 +254,17 @@ export class AudioEngine {
         n.includes('alex') ||
         n.includes('james') ||
         n.includes('andrew') ||
+        n.includes('luke') ||
+        n.includes('christopher') ||
+        n.includes('eric') ||
+        n.includes('steffan') ||
+        n.includes('william') ||
+        n.includes('liam') ||
+        n.includes('prabhat') ||
+        n.includes('asad') ||
+        n.includes('connor') ||
+        n.includes('mitchell') ||
+        n.includes('wayne') ||
         n.includes('-m-') ||
         n.includes('x-sfg') // Android TTS male default
       );
@@ -214,6 +284,17 @@ export class AudioEngine {
         n.includes('kore') ||
         n.includes('samantha') ||
         n.includes('victoria') ||
+        n.includes('leah') ||
+        n.includes('libby') ||
+        n.includes('natasha') ||
+        n.includes('clara') ||
+        n.includes('neerja') ||
+        n.includes('uzma') ||
+        n.includes('emily') ||
+        n.includes('molly') ||
+        n.includes('michelle') ||
+        n.includes('luna') ||
+        n.includes('rosa') ||
         n.includes('-f-') ||
         n.includes('x-tpd') // Android TTS female default
       );
@@ -225,7 +306,9 @@ export class AudioEngine {
       genderFiltered = available;
     }
 
-    // 1. Regional African voices
+    // 1. Regional African voices (Nigeria, South Africa, Kenya, Ghana, Swahili, etc.)
+    // In Microsoft Edge, this automatically matches "Microsoft Leah Online (Natural) - English (South Africa)"
+    // or "Microsoft Luke Online (Natural) - English (South Africa)"!
     const africanVoice = genderFiltered.find((v) => {
       const l = v.lang.toLowerCase();
       const n = v.name.toLowerCase();
@@ -244,21 +327,23 @@ export class AudioEngine {
       );
     });
 
-    // 2. Persona-specific natural matches
+    // 2. Persona-specific natural matches across Chrome, Edge, and Safari
     let chosenVoice: SpeechSynthesisVoice | undefined;
 
     if (personaId === 'Fenrir') {
       // Baba Griot: Prioritize deep, resonant male voices
       chosenVoice =
         africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('microsoft') && (v.name.toLowerCase().includes('luke') || v.name.toLowerCase().includes('ryan') || v.name.toLowerCase().includes('guy'))) ||
         genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english male')) ||
         genderFiltered.find((v) => v.name.toLowerCase().includes('google us english')) ||
         genderFiltered.find((v) => isVoiceMale(v)) ||
         genderFiltered[0];
     } else if (personaId === 'Puck') {
-      // Brother Kwaku: Prioritize energetic, rhythmic young male
+      // Brother Kwaku: Energetic, rhythmic young male
       chosenVoice =
         africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('microsoft') && (v.name.toLowerCase().includes('steffan') || v.name.toLowerCase().includes('ryan') || v.name.toLowerCase().includes('christopher'))) ||
         genderFiltered.find((v) => v.name.toLowerCase().includes('google')) ||
         genderFiltered.find((v) => v.lang.toLowerCase().includes('en-au')) ||
         genderFiltered.find((v) => isVoiceMale(v)) ||
@@ -267,6 +352,7 @@ export class AudioEngine {
       // Sister Amina: Gentle, soothing female voice
       chosenVoice =
         africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('microsoft') && (v.name.toLowerCase().includes('sonia') || v.name.toLowerCase().includes('libby') || v.name.toLowerCase().includes('jenny'))) ||
         genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english female')) ||
         genderFiltered.find((v) => v.name.toLowerCase().includes('aria') || v.name.toLowerCase().includes('jenny')) ||
         genderFiltered.find((v) => isVoiceFemale(v)) ||
@@ -275,6 +361,7 @@ export class AudioEngine {
       // Elder Osei: Measured, dignified male
       chosenVoice =
         africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('microsoft') && (v.name.toLowerCase().includes('ryan') || v.name.toLowerCase().includes('guy') || v.name.toLowerCase().includes('natural'))) ||
         genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english male')) ||
         genderFiltered.find((v) => isVoiceMale(v)) ||
         genderFiltered[0];
@@ -282,6 +369,7 @@ export class AudioEngine {
       // Mama Kore: Warm, nurturing matriarch
       chosenVoice =
         africanVoice ||
+        genderFiltered.find((v) => v.name.toLowerCase().includes('microsoft') && (v.name.toLowerCase().includes('leah') || v.name.toLowerCase().includes('jenny') || v.name.toLowerCase().includes('aria'))) ||
         genderFiltered.find((v) => v.name.toLowerCase().includes('google uk english female')) ||
         genderFiltered.find((v) => isVoiceFemale(v)) ||
         genderFiltered[0];
@@ -603,22 +691,18 @@ export class AudioEngine {
           utterance.voice = selectedVoice;
         }
 
-        utterance.onend = () => {
-          sentenceIdx++;
-          // Natural human storyteller breath pause (120ms) between sentences
-          setTimeout(() => {
-            speakSentence();
-          }, 120);
-        };
-
-        utterance.onerror = (e) => {
-          if (e.error !== 'interrupted' && e.error !== 'canceled') {
-            listeners.onError?.(`Audio playback notice: ${e.error}`);
+        this.safeSpeak(
+          utterance,
+          () => {
+            sentenceIdx++;
+            setTimeout(() => {
+              speakSentence();
+            }, 120);
+          },
+          (err) => {
+            listeners.onError?.(`Audio playback notice: ${err}`);
           }
-        };
-
-        this.currentUtterance = utterance;
-        window.speechSynthesis.speak(utterance);
+        );
       };
 
       speakSentence();
@@ -679,10 +763,7 @@ export class AudioEngine {
       if (match.voice) utterance.voice = match.voice;
       utterance.pitch = pitch !== undefined ? pitch : match.pitch;
       utterance.rate = rate !== undefined ? rate : match.rate;
-      utterance.onend = () => onEnd?.();
-      utterance.onerror = () => onEnd?.();
-      this.currentUtterance = utterance;
-      window.speechSynthesis.speak(utterance);
+      this.safeSpeak(utterance, onEnd, () => onEnd?.());
       return;
     }
 
@@ -705,11 +786,7 @@ export class AudioEngine {
       utterance.voice = chosenVoice;
     }
 
-    utterance.onend = () => onEnd?.();
-    utterance.onerror = () => onEnd?.();
-
-    this.currentUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
+    this.safeSpeak(utterance, onEnd, () => onEnd?.());
   }
 
   public pauseSpeaking(): void {
@@ -725,8 +802,11 @@ export class AudioEngine {
   }
 
   public stopSpeaking(): void {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+      this.activeUtterances.clear();
       this.currentUtterance = null;
     }
     this.stopAudioUrl();
@@ -865,11 +945,7 @@ export class AudioEngine {
     utterance.rate = computedRate;
     utterance.pitch = computedPitch;
 
-    utterance.onend = () => onEnd?.();
-    utterance.onerror = () => onEnd?.();
-
-    this.currentUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
+    this.safeSpeak(utterance, onEnd, () => onEnd?.());
   }
 
   // CHILD READING PRACTICE (RECORDING)

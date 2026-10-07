@@ -68,6 +68,7 @@ export interface StoryParagraph {
   id: string;
   paragraphNumber: number;
   text: string;
+  heading?: string;
   highlightWords?: string[];
 }
 
@@ -148,6 +149,7 @@ export interface Story {
   ageRange: string;
   difficulty: DifficultyLevel;
   estimatedReadingTime: number; // minutes
+  readingTimeMinutes?: number;
   learningObjectives: string[];
   source: string;
   sourceType: string;

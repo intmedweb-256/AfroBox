@@ -53,24 +53,32 @@ class ProfileService {
 
   public hasOnboarded(): boolean {
     if (typeof window === 'undefined') return true;
-    return localStorage.getItem(ONBOARDING_COMPLETED_KEY) === 'true';
+    try {
+      return localStorage.getItem(ONBOARDING_COMPLETED_KEY) === 'true';
+    } catch {
+      return false;
+    }
   }
 
   public markOnboarded(): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+    try {
+      localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
+    } catch {}
   }
 
   public clearCache(): void {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem(ONBOARDING_COMPLETED_KEY);
-    localStorage.removeItem(PROFILES_STORAGE_KEY);
-    localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
-    localStorage.removeItem('afrobox_profile_confirmed');
-    localStorage.removeItem('afrobox_learner_profiles_v2');
-    localStorage.removeItem('afrobox_active_learner_id_v2');
-    localStorage.removeItem('afrobox_hide_tour');
-    sessionStorage.removeItem('afrobox_profile_confirmed');
+    try {
+      localStorage.removeItem(ONBOARDING_COMPLETED_KEY);
+      localStorage.removeItem(PROFILES_STORAGE_KEY);
+      localStorage.removeItem(ACTIVE_PROFILE_ID_KEY);
+      localStorage.removeItem('afrobox_profile_confirmed');
+      localStorage.removeItem('afrobox_learner_profiles_v2');
+      localStorage.removeItem('afrobox_active_learner_id_v2');
+      localStorage.removeItem('afrobox_hide_tour');
+      sessionStorage.removeItem('afrobox_profile_confirmed');
+    } catch {}
     this.notify();
   }
 
